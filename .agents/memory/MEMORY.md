@@ -59,4 +59,5 @@
 - [Opt-in metrics + cross-tile remote](optin-metrics-remote.md) — MetricDef.defaultOff + defaultMetricKeys() for opt-in metrics (null selection ≠ all); PageTilesContext lets one tile drive another (ErsatzTV guide tunes videoplayer via tile-update).
 - [AI Chat tile](ai-chat-tile.md) — multi-account AI providers in "ai" row extra JSON; sample only at zero accounts, 502-with-hint on failure; history client-side homehub:aichat:<tileId>.
 - [AI chat streaming mode](ai-chat-streaming.md) — stream:true → NDJSON delta lines; per-provider SSE/NDJSON quirks; commit 200 on first delta so pre-stream failures still 502.
+- [Release pipeline](release-pipeline.md) — tag→CI builds multi-arch Docker + per-OS bundles; native modules installed ON target, ship exact `process.execPath` as bin/node; new externals must join RUNTIME_EXTERNALS; smoke test gates release.
 - [Picture Frame tile](pictureframe-tile.md) — album photos come as authed /api/widgets/photos proxy paths (blob-fetch w/ token); Google baseUrls re-resolved per request; sample- albumIds = demo mode; frames drawn as padding+background.

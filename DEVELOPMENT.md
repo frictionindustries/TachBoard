@@ -14,6 +14,9 @@ The fix is a workflow, not a code change:
 
 This guide covers the whole loop.
 
+> Looking to **install a release** (Docker/TrueNAS, Windows, macOS bundles)?
+> See [INSTALL.md](INSTALL.md). To **cut a release**, see [RELEASE.md](RELEASE.md).
+
 ---
 
 ## 1. Prerequisites (on your local box)

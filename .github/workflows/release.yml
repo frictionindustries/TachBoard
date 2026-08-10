@@ -1,0 +1,134 @@
+# Release pipeline — builds every distributable Tachboard artifact on tag push.
+#
+# Triggers on tags like v1.2.3 (or manually via workflow_dispatch for a dry run).
+# Produces:
+#   * Multi-arch Docker image (linux/amd64 + linux/arm64) pushed to GHCR —
+#     the primary release path for Linux and TrueNAS SCALE.
+#   * Self-contained runnable bundles (own Node runtime + natively-built
+#     better-sqlite3/sharp) for Windows x64, macOS arm64/x64, Linux x64/arm64,
+#     each smoke-tested before upload and attached to the GitHub Release.
+#
+# Native modules are NEVER cross-compiled: each bundle is built on a runner of
+# its own OS/arch, and the packaging script ships the exact Node binary the
+# modules were installed against. See RELEASE.md for the full process,
+# including the code-signing decision (currently: ship unsigned + documented
+# Gatekeeper/SmartScreen bypass).
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # attach bundles to the GitHub Release
+  packages: write # push the Docker image to GHCR
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────
+  # Docker image (primary Linux / TrueNAS path), multi-arch amd64 + arm64
+  # ────────────────────────────────────────────────────────────────────────
+  docker:
+    name: Docker image (linux amd64+arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build (and push on tag)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Self-contained bundles — one job per OS/arch so native modules are built
+  # natively. Each bundle is smoke-tested (boot + sqlite + sharp + login)
+  # before it can ship.
+  # ────────────────────────────────────────────────────────────────────────
+  bundles:
+    name: Bundle ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux-x64, archive: tachboard-linux-x64.tar.gz }
+          - { os: ubuntu-24.04-arm, target: linux-arm64, archive: tachboard-linux-arm64.tar.gz }
+          - { os: windows-latest, target: windows-x64, archive: tachboard-windows-x64.zip }
+          - { os: macos-14, target: macos-arm64, archive: tachboard-macos-arm64.tar.gz }
+          # Intel macOS runner; if GitHub retires this label, switch to the
+          # current x64 macOS runner label.
+          - { os: macos-15-intel, target: macos-x64, archive: tachboard-macos-x64.tar.gz }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API server
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Build frontend
+        env:
+          NODE_ENV: production
+          BASE_PATH: /
+          PORT: "20028"
+        run: pnpm --filter @workspace/homelab-dashboard run build
+
+      - name: Package bundle
+        run: node scripts/package-release.mjs --out release
+
+      - name: Smoke test bundle
+        run: node scripts/smoke-test-bundle.mjs release/tachboard-${{ matrix.target }}
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive }}
+          path: release/${{ matrix.archive }}
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/${{ matrix.archive }}
