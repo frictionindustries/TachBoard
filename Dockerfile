@@ -15,6 +15,12 @@ COPY lib/ lib/
 COPY artifacts/api-server/ artifacts/api-server/
 
 RUN pnpm install --frozen-lockfile
+# Release version + repo slug stamped by the release workflow (empty in local
+# builds → server falls back to APP_VERSION/APP_REPO env vars or "dev").
+ARG APP_VERSION=""
+ARG APP_REPO=""
+ENV APP_VERSION=$APP_VERSION
+ENV APP_REPO=$APP_REPO
 RUN pnpm --filter @workspace/api-server run build
 
 ##############################################

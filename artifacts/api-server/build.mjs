@@ -59,6 +59,13 @@ async function buildAll() {
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
+    // Release builds stamp the version + GitHub repo slug from the git tag
+    // (release workflow sets APP_VERSION / APP_REPO). Dev builds leave them
+    // empty and the server falls back to env vars / "dev".
+    define: {
+      __APP_VERSION__: JSON.stringify(process.env.APP_VERSION ?? ""),
+      __APP_REPO__: JSON.stringify(process.env.APP_REPO ?? ""),
+    },
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
     // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
     // Examples of unbundleable packages:

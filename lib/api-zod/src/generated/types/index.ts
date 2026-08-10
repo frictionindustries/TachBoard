@@ -195,6 +195,7 @@ export * from './uploadedFile';
 export * from './uploadResult';
 export * from './uploadUsage';
 export * from './userProfile';
+export * from './versionInfo';
 export * from './videoBrowseResult';
 export * from './videoContainer';
 export * from './videoContainerKind';

@@ -3,6 +3,8 @@ import { TachLogo } from "@/components/TachLogo";
 import { useLocation } from "wouter";
 import {
   useGetMe,
+  useGetVersion,
+  getGetVersionQueryKey,
   useGetConnections,
   useUpdateConnection,
   useTestConnection,
@@ -2818,6 +2820,45 @@ function ProfileSection() {
   );
 }
 
+// ── About / version + update notice ────────────────────────────────────────
+// Shows the running build's version and, when the (once-a-day, opt-out)
+// GitHub release check finds a newer release, an unobtrusive notice + link.
+function AboutSection() {
+  const { data: version } = useGetVersion({
+    query: {
+      queryKey: getGetVersionQueryKey(),
+      staleTime: 60 * 60 * 1000, // server caches for a day; no need to poll
+      retry: false,
+    },
+  });
+
+  return (
+    <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="uppercase tracking-widest font-semibold">Tachboard</span>
+        <span data-testid="text-app-version">
+          Version {version?.currentVersion ?? "…"}
+        </span>
+        {version?.updateAvailable && version.latestVersion && (
+          <a
+            href={version.releaseUrl ?? undefined}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-primary hover:underline"
+            data-testid="link-update-available"
+          >
+            Update available: {version.latestVersion}
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+      </div>
+      {version && !version.checkEnabled && (
+        <p className="mt-1">Update checks are disabled.</p>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -2977,6 +3018,8 @@ export default function Settings() {
             </CategorySection>
           </div>
         )}
+
+        <AboutSection />
       </main>
     </div>
   );

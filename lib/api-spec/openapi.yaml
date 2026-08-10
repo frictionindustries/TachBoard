@@ -34,6 +34,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /version:
+    get:
+      operationId: getVersion
+      tags: [health]
+      summary: Current build version and update availability
+      responses:
+        "200":
+          description: Version info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionInfo"
+
   /auth/register:
     post:
       operationId: register
@@ -2673,6 +2686,21 @@ components:
       properties:
         status:
           type: string
+
+    VersionInfo:
+      type: object
+      required: [currentVersion, latestVersion, releaseUrl, updateAvailable, checkEnabled]
+      properties:
+        currentVersion:
+          type: string
+        latestVersion:
+          type: ["string", "null"]
+        releaseUrl:
+          type: ["string", "null"]
+        updateAvailable:
+          type: boolean
+        checkEnabled:
+          type: boolean
 
     ErrorResponse:
       type: object

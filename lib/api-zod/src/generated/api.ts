@@ -17,6 +17,18 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Current build version and update availability
+ */
+export const GetVersionResponse = zod.object({
+  "currentVersion": zod.string(),
+  "latestVersion": zod.string().nullable(),
+  "releaseUrl": zod.string().nullable(),
+  "updateAvailable": zod.boolean(),
+  "checkEnabled": zod.boolean()
+})
+
+
+/**
  * @summary Register a new user
  */
 export const registerBodyUsernameMin = 3;

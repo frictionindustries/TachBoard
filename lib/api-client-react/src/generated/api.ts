@@ -131,6 +131,7 @@ import type {
   UploadUsage,
   UploadedFile,
   UserProfile,
+  VersionInfo,
   VideoBrowseResult,
   VideoLibrariesData,
   VideoPlaylistData,
@@ -214,6 +215,83 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetVersionUrl = () => {
+
+
+
+
+  return `/api/version`
+}
+
+/**
+ * @summary Current build version and update availability
+ */
+export const getVersion = async ( options?: RequestInit): Promise<VersionInfo> => {
+
+  return customFetch<VersionInfo>(getGetVersionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetVersionQueryKey = () => {
+    return [
+    `/api/version`
+    ] as const;
+    }
+
+
+export const getGetVersionQueryOptions = <TData = Awaited<ReturnType<typeof getVersion>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVersionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVersion>>> = ({ signal }) => getVersion({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVersion>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetVersionQueryResult = NonNullable<Awaited<ReturnType<typeof getVersion>>>
+export type GetVersionQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Current build version and update availability
+ */
+
+export function useGetVersion<TData = Awaited<ReturnType<typeof getVersion>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVersion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetVersionQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

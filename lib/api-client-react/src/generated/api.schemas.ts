@@ -9,6 +9,16 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface VersionInfo {
+  currentVersion: string;
+  /** @nullable */
+  latestVersion: string | null;
+  /** @nullable */
+  releaseUrl: string | null;
+  updateAvailable: boolean;
+  checkEnabled: boolean;
+}
+
 export interface ErrorResponse {
   error: string;
 }
