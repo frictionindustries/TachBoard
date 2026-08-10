@@ -23,7 +23,7 @@ docker run -d --name tachboard \
   -p 20028:20028 \
   -v tachboard-data:/data \
   --restart unless-stopped \
-  ghcr.io/OWNER/REPO:latest
+  ghcr.io/frictionindustries/tachboard:latest
 ```
 
 Or with the repo's `docker-compose.yml`: `docker compose up -d`
@@ -39,7 +39,7 @@ ix-volume mounted at `/data`.
 ## macOS / Linux — Homebrew (one-liner)
 
 ```bash
-brew install OWNER/tachboard/tachboard
+brew install frictionindustries/tachboard/tachboard
 tachboard            # or: brew services start tachboard
 ```
 
