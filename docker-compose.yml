@@ -6,12 +6,12 @@ services:
     container_name: tachboard
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-20028}:20028"
     environment:
       - NODE_ENV=production
-      # The app always listens on 3000 inside the container. To change the
+      # The app always listens on 20028 inside the container. To change the
       # host port, set PORT in your .env (it only affects the host side above).
-      - PORT=3000
+      - PORT=20028
       # SQLite database file and uploaded images live in the mounted /data volume
       - DATA_DIR=/data
     # All secrets and optional service credentials live in a gitignored `.env`
@@ -26,7 +26,7 @@ services:
       # its pre-rebrand name so existing installs keep their data on upgrade.
       - homelab-data:/data
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/healthz"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:20028/api/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3

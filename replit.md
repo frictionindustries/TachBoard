@@ -43,4 +43,4 @@ _Populate as you build — sharp edges, "always run X before Y" rules._
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
-- **Local development inside your LAN** (edit on Replit → push → pull on a home-network box → run with hot reload so connections reach real services): see `DEVELOPMENT.md`. Quick start on the local box: `pnpm run dev:local` (API on :5000, dashboard on :3000 with `/api` proxied to it).
+- **Local development inside your LAN** (edit on Replit → push → pull on a home-network box → run with hot reload so connections reach real services): see `DEVELOPMENT.md`. Quick start on the local box: `pnpm run dev:local` (API on :20027, dashboard on :20026 with `/api` proxied to it).

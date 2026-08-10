@@ -78,19 +78,19 @@ This starts both services together with hot reload:
 
 | Service       | Port (default) | Reload                                   |
 |---------------|----------------|------------------------------------------|
-| API Server    | `5000`         | rebuilds + restarts on file change       |
-| Dashboard     | `3000`         | Vite HMR (instant)                       |
+| API Server    | `20027`        | rebuilds + restarts on file change       |
+| Dashboard     | `20026`        | Vite HMR (instant)                       |
 
-Then open **http://localhost:3000**.
+Then open **http://localhost:20026**.
 
 The dashboard calls the API with relative `/api/...` paths. In dev, Vite proxies
-`/api` straight to the API Server on port `5000`, so there are no 404s and no
+`/api` straight to the API Server on port `20027`, so there are no 404s and no
 manual proxy fiddling.
 
 **Overriding ports / proxy target** (optional):
 
 ```bash
-API_PORT=5050 WEB_PORT=3001 pnpm run dev:local
+API_PORT=5050 WEB_PORT=3000 pnpm run dev:local
 # Point the dashboard's /api proxy somewhere else entirely:
 VITE_API_PROXY_TARGET=http://localhost:5050 pnpm --filter @workspace/homelab-dashboard run dev
 ```
@@ -99,11 +99,11 @@ VITE_API_PROXY_TARGET=http://localhost:5050 pnpm --filter @workspace/homelab-das
 > ```bash
 > # terminal 1 — API Server (rebuilds + restarts on change)
 > cd artifacts/api-server
-> NODE_ENV=development PORT=5000 DATA_DIR=./data pnpm run dev:watch
+> NODE_ENV=development PORT=20027 DATA_DIR=./data pnpm run dev:watch
 >
-> # terminal 2 — dashboard (Vite, proxies /api -> :5000)
+> # terminal 2 — dashboard (Vite, proxies /api -> :20027)
 > cd artifacts/homelab-dashboard
-> PORT=3000 VITE_API_PROXY_TARGET=http://localhost:5000 pnpm run dev
+> PORT=20026 VITE_API_PROXY_TARGET=http://localhost:20027 pnpm run dev
 > ```
 
 ### b. Production parity — `docker compose`
@@ -115,7 +115,7 @@ and `/api` on one port). Use this to sanity-check a release before deploying it.
 docker compose up --build
 ```
 
-Then open **http://localhost:3000** (override with `PORT=8080 docker compose up --build`).
+Then open **http://localhost:20028** (override with `PORT=8080 docker compose up --build`).
 
 Persisted data (SQLite DB, uploads, generated JWT secret) lives in the
 `homelab-data` Docker volume. Optional service credentials can be set via

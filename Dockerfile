@@ -70,12 +70,12 @@ RUN mkdir -p /data/uploads
 
 # Environment defaults
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=20028
 ENV DATA_DIR=/data
 ENV JWT_SECRET=""
 ENV FRONTEND_DIST=/app/frontend-dist
 
-EXPOSE 3000
+EXPOSE 20028
 
 # Entrypoint: validate JWT_SECRET and start the server
 CMD ["node", "--enable-source-maps", "./artifacts/api-server/dist/index.mjs"]

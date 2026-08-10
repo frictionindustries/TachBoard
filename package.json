@@ -9,7 +9,7 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test:e2e": "playwright test",
-    "dev:local": "concurrently -k -n api,web -c blue,green \"NODE_ENV=development PORT=${API_PORT:-5000} DATA_DIR=./data pnpm --filter @workspace/api-server run dev:watch\" \"PORT=${WEB_PORT:-3000} BASE_PATH=/ VITE_API_PROXY_TARGET=http://localhost:${API_PORT:-5000} pnpm --filter @workspace/homelab-dashboard run dev\""
+    "dev:local": "concurrently -k -n api,web -c blue,green \"NODE_ENV=development PORT=${API_PORT:-20027} DATA_DIR=./data pnpm --filter @workspace/api-server run dev:watch\" \"PORT=${WEB_PORT:-20026} BASE_PATH=/ VITE_API_PROXY_TARGET=http://localhost:${API_PORT:-20027} pnpm --filter @workspace/homelab-dashboard run dev\""
   },
   "private": true,
   "devDependencies": {

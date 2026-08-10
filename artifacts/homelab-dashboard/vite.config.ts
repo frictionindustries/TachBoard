@@ -6,7 +6,7 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 // PORT and BASE_PATH are required in dev (set by Replit workflow) but optional
 // during Docker build — fall back to sane defaults so `vite build` succeeds.
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.PORT ?? 20026);
 const basePath = process.env.BASE_PATH ?? "/";
 
 // Local-dev only: bridge `/api` to the local API Server.
@@ -23,7 +23,7 @@ const isReplit =
   process.env.REPL_ID !== undefined &&
   process.env.VITE_FORCE_API_PROXY !== "1";
 const apiProxyTarget =
-  process.env.VITE_API_PROXY_TARGET ?? "http://localhost:5000";
+  process.env.VITE_API_PROXY_TARGET ?? "http://localhost:20027";
 const devProxy = isReplit
   ? undefined
   : {
