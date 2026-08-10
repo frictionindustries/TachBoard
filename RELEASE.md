@@ -81,6 +81,28 @@ app-specific password + Developer ID cert in repo secrets) and a
 `signtool`/Azure Trusted Signing step to the Windows job. The workflow is
 structured so these slot in between "Package bundle" and "Smoke test".
 
+## Package-manager distribution
+
+The `packaging` job in the release workflow renders `packaging/`'s templates
+(via `scripts/render-packaging.mjs`) with the tag's version and the sha256 of
+every bundle, and uploads them as the `packaging-manifests` artifact:
+
+- **Homebrew** (`packaging/homebrew/`) — formula wrapping the macOS/Linux
+  tarballs. Auto-pushed to the `<owner>/homebrew-tachboard` tap on each tag
+  when the `HOMEBREW_TAP_TOKEN` secret is set; otherwise commit the rendered
+  formula manually. Install: `brew install <owner>/tachboard/tachboard`.
+- **winget** (`packaging/winget/`) — portable-zip manifests for
+  `Tachboard.Tachboard`. Each version is a PR to microsoft/winget-pkgs
+  (first one manual; afterwards `wingetcreate update --submit`).
+- **TrueNAS SCALE** (`packaging/truenas/`) — community catalog entry for
+  truenas/apps pointing at the GHCR image with the `/data` volume. Submitted
+  and version-bumped by PR to their repo.
+
+Each subdirectory's README.md has the exact submission steps. New bundle
+targets must be added to `ARCHIVES` in `scripts/render-packaging.mjs` (the
+render fails if any archive is missing, so a dropped target can't silently
+ship stale manifests).
+
 ## Version support notes
 
 - Bundles pin Node via `NODE_VERSION` in the workflow (currently 22 LTS);

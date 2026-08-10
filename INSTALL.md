@@ -28,10 +28,40 @@ docker run -d --name tachboard \
 
 Or with the repo's `docker-compose.yml`: `docker compose up -d`
 (optionally copy `.env.example` → `.env` first). Data dir: the `/data`
-volume. On TrueNAS SCALE, add it as a Custom App with the same image, port,
-and a host-path or ix-volume mounted at `/data`.
+volume.
 
-## Windows (x64) — no Docker, no Node needed
+**TrueNAS SCALE:** once the community catalog entry is merged
+(`packaging/truenas/`), install from **Apps → Discover → Tachboard** — the
+wizard sets up the port and the `/data` ixVolume for you. Until then, add it
+as a **Custom App** with the same image, port `20028`, and a host-path or
+ix-volume mounted at `/data`.
+
+## macOS / Linux — Homebrew (one-liner)
+
+```bash
+brew install OWNER/tachboard/tachboard
+tachboard            # or: brew services start tachboard
+```
+
+Data dir: `$(brew --prefix)/var/tachboard` (override with `DATA_DIR`).
+Upgrades: `brew upgrade tachboard`. No Gatekeeper prompt — Homebrew
+downloads aren't quarantined.
+
+## Windows — winget (one-liner)
+
+```powershell
+winget install Tachboard.Tachboard
+tachboard
+```
+
+winget extracts the portable bundle and puts a `tachboard` alias for
+`start.bat` on your PATH. Data dir: the `data` folder next to the installed
+bundle (override with `DATA_DIR`). Upgrades: `winget upgrade Tachboard.Tachboard`.
+
+> Both one-liners become available once the tap/manifest submissions from
+> `packaging/` are published — until then use the manual installs below.
+
+## Windows (x64) — manual zip (no Docker, no Node needed)
 
 1. Download `tachboard-windows-x64.zip` from the release page.
 2. (Recommended) Right-click the zip → Properties → check **Unblock** → OK.
@@ -42,7 +72,7 @@ and a host-path or ix-volume mounted at `/data`.
 Data dir: the `data` folder next to `start.bat` (override with the
 `DATA_DIR` environment variable; `PORT` overrides the port).
 
-## macOS (Apple Silicon or Intel) — no Docker, no Node needed
+## macOS (Apple Silicon or Intel) — manual tarball (no Docker, no Node needed)
 
 1. Download `tachboard-macos-arm64.tar.gz` (Apple Silicon) or
    `tachboard-macos-x64.tar.gz` (Intel) from the release page.

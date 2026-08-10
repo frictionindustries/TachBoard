@@ -1,0 +1,15 @@
+# winget installer manifest — wraps the portable Windows zip bundle.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: Tachboard.Tachboard
+PackageVersion: "__VERSION__"
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: tachboard-windows-x64\start.bat
+    PortableCommandAlias: tachboard
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/__OWNER__/__REPO__/releases/download/v__VERSION__/tachboard-windows-x64.zip
+    InstallerSha256: __SHA_WINDOWS_X64__
+ManifestType: installer
+ManifestVersion: 1.6.0

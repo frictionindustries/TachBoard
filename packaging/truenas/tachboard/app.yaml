@@ -1,0 +1,40 @@
+# TrueNAS SCALE community app catalog metadata for Tachboard.
+# Format: truenas/apps repository (SCALE 24.10+ "apps" catalog).
+# Submit by PR to https://github.com/truenas/apps under ix-dev/community/tachboard
+# — see ../README.md for the full submission checklist.
+app_version: "__VERSION__"
+capabilities: []
+categories:
+  - media
+  - productivity
+description: >-
+  Tachboard is a self-hosted homelab dashboard: service tiles for Plex,
+  Jellyfin, Sonarr, Radarr, TrueNAS, qBittorrent, Pi-hole and many more, plus
+  mail, calendar, weather, notes and fun tiles — all in one grid you lay out
+  yourself. Single container, SQLite storage, no external database needed.
+home: https://github.com/__OWNER__/__REPO__
+host_mounts: []
+icon: https://raw.githubusercontent.com/__OWNER__/__REPO__/main/artifacts/homelab-dashboard/public/favicon.svg
+keywords:
+  - dashboard
+  - homelab
+  - homepage
+lib_version: "2.1.21"
+lib_version_hash: ""
+maintainers:
+  - name: Tachboard maintainers
+    url: https://github.com/__OWNER__/__REPO__
+name: tachboard
+run_as_context:
+  - description: Tachboard runs as the configured user and group.
+    gid: 568
+    group_name: tachboard
+    uid: 568
+    user_name: tachboard
+screenshots: []
+sources:
+  - https://github.com/__OWNER__/__REPO__
+  - https://ghcr.io/__OWNER__/__REPO__
+title: Tachboard
+train: community
+version: 1.0.0

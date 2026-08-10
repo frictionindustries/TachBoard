@@ -1,0 +1,70 @@
+# Homebrew formula for the self-contained Tachboard bundles.
+# Rendered by scripts/render-packaging.mjs (fills version + per-target sha256),
+# then published to the tap repo (homebrew-tachboard) as Formula/tachboard.rb.
+class Tachboard < Formula
+  desc "Self-hosted homelab dashboard with service tiles for Plex, *arr, TrueNAS, and more"
+  homepage "https://github.com/__OWNER__/__REPO__"
+  version "__VERSION__"
+  license "MIT"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/__OWNER__/__REPO__/releases/download/v__VERSION__/tachboard-macos-arm64.tar.gz"
+      sha256 "__SHA_MACOS_ARM64__"
+    end
+    on_intel do
+      url "https://github.com/__OWNER__/__REPO__/releases/download/v__VERSION__/tachboard-macos-x64.tar.gz"
+      sha256 "__SHA_MACOS_X64__"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/__OWNER__/__REPO__/releases/download/v__VERSION__/tachboard-linux-arm64.tar.gz"
+      sha256 "__SHA_LINUX_ARM64__"
+    end
+    on_intel do
+      url "https://github.com/__OWNER__/__REPO__/releases/download/v__VERSION__/tachboard-linux-x64.tar.gz"
+      sha256 "__SHA_LINUX_X64__"
+    end
+  end
+
+  def install
+    # The bundle is fully self-contained (own Node runtime + natively built
+    # modules); keep it intact in libexec and expose a launcher.
+    libexec.install Dir["*"]
+    (bin/"tachboard").write <<~SH
+      #!/bin/sh
+      export DATA_DIR="${DATA_DIR:-#{var}/tachboard}"
+      exec "#{libexec}/start.sh" "$@"
+    SH
+  end
+
+  def post_install
+    (var/"tachboard").mkpath
+  end
+
+  service do
+    run [opt_bin/"tachboard"]
+    keep_alive true
+    working_dir var/"tachboard"
+    log_path var/"log/tachboard.log"
+    error_log_path var/"log/tachboard.log"
+  end
+
+  def caveats
+    <<~EOS
+      Start Tachboard with `tachboard` (or `brew services start tachboard`),
+      then open http://localhost:20028 and register your account.
+
+      Data (SQLite DB, uploads, auth secret) lives in:
+        #{var}/tachboard        (override with DATA_DIR)
+      PORT overrides the listen port (default 20028).
+    EOS
+  end
+
+  test do
+    assert_predicate libexec/"start.sh", :exist?
+    assert_predicate libexec/"bin/node", :exist?
+  end
+end

@@ -1,0 +1,7 @@
+images:
+  image:
+    repository: ghcr.io/__OWNER__/__REPO__
+    tag: "__VERSION__"
+
+consts:
+  ix_context_path: /ix-context
