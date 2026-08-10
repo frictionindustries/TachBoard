@@ -64,3 +64,6 @@ artifacts/api-server/data/*.sqlite-wal
 artifacts/api-server/data/*.sqlite-shm
 artifacts/api-server/data/jwt-secret
 artifacts/api-server/data/uploads/
+
+# Release bundles built by scripts/package-release.mjs
+/release/
