@@ -28,9 +28,13 @@ const version = arg("version").replace(/^v/, "");
 const repo = arg("repo"); // owner/name
 const archivesDir = arg("archives");
 const outDir = arg("out");
-const [owner, repoName] = repo.split("/");
-if (!owner || !repoName) throw new Error(`--repo must be owner/name, got: ${repo}`);
-if (!/^\d+\.\d+\.\d+/.test(version)) throw new Error(`--version doesn't look like semver: ${version}`);
+const repoParts = repo.split("/");
+const [owner, repoName] = repoParts;
+if (repoParts.length !== 2 || !/^[A-Za-z0-9_.-]+$/.test(owner ?? "") || !/^[A-Za-z0-9_.-]+$/.test(repoName ?? ""))
+  throw new Error(`--repo must be owner/name, got: ${repo}`);
+// Full semver: MAJOR.MINOR.PATCH with optional -prerelease and +build.
+if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(version))
+  throw new Error(`--version doesn't look like semver: ${version}`);
 
 const ARCHIVES = {
   SHA_MACOS_ARM64: "tachboard-macos-arm64.tar.gz",
