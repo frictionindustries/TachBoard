@@ -30,11 +30,37 @@ env:
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────
+  # Unit tests — gate every release path. A failing api-server test (which
+  # includes the render-packaging manifest tests) blocks the whole release.
+  # ────────────────────────────────────────────────────────────────────────
+  tests:
+    name: Unit tests (api-server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run api-server test suite
+        run: pnpm --filter @workspace/api-server test
+
+  # ────────────────────────────────────────────────────────────────────────
   # Docker image (primary Linux / TrueNAS path), multi-arch amd64 + arm64
   # ────────────────────────────────────────────────────────────────────────
   docker:
     name: Docker image (linux amd64+arm64)
     runs-on: ubuntu-latest
+    needs: [tests]
     steps:
       - uses: actions/checkout@v4
 
@@ -81,6 +107,7 @@ jobs:
   bundles:
     name: Bundle ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    needs: [tests]
     strategy:
       fail-fast: false
       matrix:
@@ -151,7 +178,7 @@ jobs:
   packaging:
     name: Package-manager manifests
     runs-on: ubuntu-latest
-    needs: [bundles]
+    needs: [tests, bundles]
     steps:
       - uses: actions/checkout@v4
 
