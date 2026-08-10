@@ -2689,7 +2689,7 @@ components:
 
     VersionInfo:
       type: object
-      required: [currentVersion, latestVersion, releaseUrl, updateAvailable, checkEnabled]
+      required: [currentVersion, latestVersion, releaseUrl, releaseNotes, updateAvailable, checkEnabled]
       properties:
         currentVersion:
           type: string
@@ -2697,6 +2697,9 @@ components:
           type: ["string", "null"]
         releaseUrl:
           type: ["string", "null"]
+        releaseNotes:
+          type: ["string", "null"]
+          description: Markdown body of the latest release (may be null/empty)
         updateAvailable:
           type: boolean
         checkEnabled:

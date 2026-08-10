@@ -23,6 +23,7 @@ export const GetVersionResponse = zod.object({
   "currentVersion": zod.string(),
   "latestVersion": zod.string().nullable(),
   "releaseUrl": zod.string().nullable(),
+  "releaseNotes": zod.string().nullable().describe('Markdown body of the latest release (may be null\/empty)'),
   "updateAvailable": zod.boolean(),
   "checkEnabled": zod.boolean()
 })

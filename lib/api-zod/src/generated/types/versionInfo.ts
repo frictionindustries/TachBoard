@@ -12,6 +12,11 @@ export interface VersionInfo {
   latestVersion: string | null;
   /** @nullable */
   releaseUrl: string | null;
+  /**
+     * Markdown body of the latest release (may be null/empty)
+     * @nullable
+     */
+  releaseNotes: string | null;
   updateAvailable: boolean;
   checkEnabled: boolean;
 }

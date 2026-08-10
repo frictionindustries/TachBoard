@@ -132,6 +132,7 @@ import {
   isCustomThemeId,
   type CustomThemeMap,
 } from "@/lib/customThemes";
+import { MarkdownContent } from "@/lib/markdown";
 
 // Copy text to the clipboard, returning whether it succeeded. The async
 // Clipboard API only exists in secure contexts (HTTPS or localhost); a
@@ -2831,6 +2832,9 @@ function AboutSection() {
       retry: false,
     },
   });
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  const hasNotes = Boolean(version?.releaseNotes?.trim());
 
   return (
     <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
@@ -2840,18 +2844,42 @@ function AboutSection() {
           Version {version?.currentVersion ?? "…"}
         </span>
         {version?.updateAvailable && version.latestVersion && (
-          <a
-            href={version.releaseUrl ?? undefined}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-            data-testid="link-update-available"
-          >
-            Update available: {version.latestVersion}
-            <ExternalLink className="w-3 h-3" />
-          </a>
+          <>
+            <a
+              href={version.releaseUrl ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+              data-testid="link-update-available"
+            >
+              Update available: {version.latestVersion}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            {hasNotes && (
+              <button
+                type="button"
+                onClick={() => setNotesOpen((open) => !open)}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+                aria-expanded={notesOpen}
+                data-testid="button-toggle-release-notes"
+              >
+                What's new
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform ${notesOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            )}
+          </>
         )}
       </div>
+      {version?.updateAvailable && hasNotes && notesOpen && (
+        <div
+          className="mt-2 max-w-xl max-h-64 overflow-y-auto border border-border bg-card p-3 text-foreground"
+          data-testid="release-notes"
+        >
+          <MarkdownContent text={version.releaseNotes ?? ""} />
+        </div>
+      )}
       {version && !version.checkEnabled && (
         <p className="mt-1">Update checks are disabled.</p>
       )}

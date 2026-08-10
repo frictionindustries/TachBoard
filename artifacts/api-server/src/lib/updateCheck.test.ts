@@ -66,6 +66,7 @@ describe("getUpdateInfo", () => {
       currentVersion: appVersion(),
       latestVersion: null,
       releaseUrl: null,
+      releaseNotes: null,
       updateAvailable: false,
       checkEnabled: false,
     });
@@ -89,6 +90,44 @@ describe("getUpdateInfo", () => {
     // Second call within the check interval must NOT hit the network again.
     await getUpdateInfo();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the release notes body from the same cached check", async () => {
+    process.env.APP_REPO = "acme/tachboard";
+    process.env.APP_VERSION = "v1.0.0";
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tag_name: "v1.1.0",
+        html_url: "https://example.com/rel",
+        body: "## Changes\n- fixed a bug\n",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const info = await getUpdateInfo();
+    expect(info.releaseNotes).toBe("## Changes\n- fixed a bug");
+
+    // Notes come from the same once-a-day cached check — no extra traffic.
+    const again = await getUpdateInfo();
+    expect(again.releaseNotes).toBe("## Changes\n- fixed a bug");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats missing/empty/non-string notes as null", async () => {
+    process.env.APP_REPO = "acme/tachboard";
+    for (const body of [undefined, "", "   \n", 42]) {
+      resetUpdateCheckCache();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ tag_name: "v1.1.0", html_url: "u", body }),
+        }),
+      );
+      const info = await getUpdateInfo();
+      expect(info.releaseNotes).toBeNull();
+    }
   });
 
   it("does not flag an update when already on the latest release", async () => {

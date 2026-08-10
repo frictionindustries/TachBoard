@@ -59,7 +59,10 @@ export function isNewerVersion(latest: string, current: string): boolean {
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // successful checks: once a day
 const FAILURE_RETRY_MS = 60 * 60 * 1000; // failed checks: retry after an hour
 
-type LatestRelease = { version: string; url: string } | null;
+type LatestRelease = { version: string; url: string; notes: string | null } | null;
+
+// Release notes can be arbitrarily long; keep the cached/served body bounded.
+const MAX_NOTES_LENGTH = 20_000;
 
 let cache: { at: number; ok: boolean; latest: LatestRelease } | null = null;
 let inflight: Promise<LatestRelease> | null = null;
@@ -80,11 +83,14 @@ async function fetchLatestRelease(): Promise<LatestRelease> {
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new Error(`GitHub releases API responded ${res.status}`);
-  const body = (await res.json()) as { tag_name?: unknown; html_url?: unknown };
+  const body = (await res.json()) as { tag_name?: unknown; html_url?: unknown; body?: unknown };
   if (typeof body.tag_name !== "string" || body.tag_name === "") return null;
+  // Release notes are optional — missing/empty/non-string bodies become null.
+  const rawNotes = typeof body.body === "string" ? body.body.trim() : "";
   return {
     version: body.tag_name,
     url: typeof body.html_url === "string" ? body.html_url : `https://github.com/${repo}/releases/latest`,
+    notes: rawNotes === "" ? null : rawNotes.slice(0, MAX_NOTES_LENGTH),
   };
 }
 
@@ -92,6 +98,7 @@ export type UpdateInfo = {
   currentVersion: string;
   latestVersion: string | null;
   releaseUrl: string | null;
+  releaseNotes: string | null;
   updateAvailable: boolean;
   checkEnabled: boolean;
 };
@@ -102,6 +109,7 @@ export async function getUpdateInfo(): Promise<UpdateInfo> {
     currentVersion,
     latestVersion: null,
     releaseUrl: null,
+    releaseNotes: null,
     updateAvailable: false,
     checkEnabled: !isUpdateCheckDisabled(),
   };
@@ -133,6 +141,7 @@ export async function getUpdateInfo(): Promise<UpdateInfo> {
     ...base,
     latestVersion: latest.version,
     releaseUrl: latest.url,
+    releaseNotes: latest.notes,
     updateAvailable: isNewerVersion(latest.version, currentVersion),
   };
 }
