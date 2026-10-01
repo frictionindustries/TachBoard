@@ -56,3 +56,10 @@ Because the app supports multiple local accounts but also holds shared integrati
 - Treat self-registration as production-reachable unless deployment settings prove otherwise. Any issue reachable after creating a normal account is in scope.
 - Shared integration storage is the highest-risk architectural seam in this codebase and should be re-checked on future scans whenever connection, widget, Google, Spotify, IMAP, or CalDAV code changes.
 - Server-side fetch features are only acceptable when destination trust is explicit. Any new route that accepts a user-controlled URL or reuses saved connection URLs should be reviewed for SSRF and cross-user abuse.
+## Scan Notes — Task 515 (full scan, 2026)
+
+- **Shared env-credential fallback pattern** (`widgets.ts`): widget routes resolve `saved.url || process.env[...]` and `saved.apiKey || process.env[...]` independently. A user who saves only a URL (no key) causes a shared deployment env credential to be sent to that user-chosen URL. Re-check any new widget that follows this fallback pattern.
+- **Process-global upstream caches**: the qBittorrent SID cache and NPM token cache are keyed by URL+username only (no userId/password), so a cached session can be reused across Tachboard users. Any new cross-request caching of upstream auth must include the owning userId in the key.
+- **OAuth state binding**: Google/Spotify state is single-use and account-bound but NOT browser-bound; account-linking CSRF is possible. Future OAuth work should bind state to the initiating browser (e.g. a cookie) and re-verify on callback.
+- **IMAP/CalDAV/GameDig outbound paths bypass the `httpClient` SSRF guard** (raw imapflow/tsdav/gamedig sockets). They permit internal-network reachability by design of those protocols; keep them in mind for SSRF scope.
+- Access control for tiles/pages/layout/device-modes/uploads/profile is correctly user-scoped (every lookup uses `findById(id, userId)` / user-scoped statements). SQLi is not present (all statements parameterized). Uploads are byte-sniffed + SVG-sanitized and served with nosniff+strict CSP.
