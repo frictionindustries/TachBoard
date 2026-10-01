@@ -11,7 +11,7 @@ describe("isSsrfBlockedIp", () => {
 
   it("always blocks IPv6 loopback, unspecified, and link-local addresses", async () => {
     const { isSsrfBlockedIp } = await import("./http.js");
-    for (const ip of ["::1", "::", "fe80::1"]) {
+    for (const ip of ["::1", "::", "fe80::1", "ff02::1"]) {
       expect(isSsrfBlockedIp(ip, false)).toBe(true);
       expect(isSsrfBlockedIp(ip, true)).toBe(true);
     }
@@ -64,6 +64,9 @@ describe("isSsrfBlockedIp", () => {
       expect(isSsrfBlockedIp(ip, true)).toBe(true);
     }
     expect(isSsrfBlockedIp("fd00::1", true)).toBe(true);
+    expect(isSsrfBlockedIp("fec0::1", true)).toBe(true);
+    expect(isSsrfBlockedIp("2002:a00:1::", true)).toBe(true);
+    expect(isSsrfBlockedIp("::192.168.0.1", true)).toBe(true);
   });
 
   it("allows ordinary public IPv4/IPv6 addresses either way", async () => {
@@ -105,5 +108,18 @@ describe("httpClient SSRF guard (request interceptor)", () => {
     await expect(
       httpClient.get("http://192.168.1.10:1/anything", { ssrfPublicOnly: true }),
     ).rejects.toThrow("That destination is not allowed.");
+  });
+
+  it("pins public IPv6 literals without looking up bracketed hostnames", async () => {
+    const { httpClient } = await import("./http.js");
+    const adapter = vi.fn(async (config) => ({
+      data: "ok", status: 200, statusText: "OK", headers: {}, config,
+    }));
+    await httpClient.get("https://[2001:4860:4860::8888]/", { ssrfPublicOnly: true, adapter });
+    const config = adapter.mock.calls[0]![0];
+    const callback = vi.fn();
+    config.lookup("ignored", { all: true }, callback);
+    expect(callback).toHaveBeenCalledWith(null, [{ address: "2001:4860:4860::8888", family: 6 }]);
+    expect(config.maxRedirects).toBe(0);
   });
 });

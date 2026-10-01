@@ -10,6 +10,9 @@
 // the user WHY a player count is missing instead of silently hiding it.
 import { GameDig } from "gamedig";
 import { logger } from "./logger.js";
+import { resolvePublicHost, validateOutboundPort } from "./outboundTargets.js";
+import { UnsafeUrlError } from "./http.js";
+import { queryHttpGamePlayers } from "./httpGameQuery.js";
 
 export interface PlayerCount {
   current: number;
@@ -102,10 +105,23 @@ export async function queryGamePlayersDetailed(
   port: number,
 ): Promise<PlayerQueryResult> {
   try {
-    const state = await GameDig.query({
+    // Do not expose arbitrary GameDig protocols with their own network paths.
+    if (!GAME_KEYWORDS.some((game) => game.type === type)) {
+      throw new UnsafeUrlError("Unsupported game query protocol.");
+    }
+    validateOutboundPort(port);
+    const target = await resolvePublicHost(host);
+    const state = ["eco", "factorio", "satisfactory", "palworld"].includes(type)
+      ? await queryHttpGamePlayers(type, type === "factorio" ? target.address : target.host, port)
+      : await GameDig.query({
       type,
-      host,
+      host: target.host,
+      // Explicit address bypasses GameDig DNS and Minecraft SRV discovery.
+      // Every protocol's socket uses this pinned, already-validated IP.
+      address: target.address,
       port,
+      // Query-port offsets/fallbacks stay on this same validated address.
+      givenPortOnly: false,
       socketTimeout: 2000,
       attemptTimeout: 4000,
       maxRetries: 1,
@@ -115,7 +131,7 @@ export async function queryGamePlayersDetailed(
     const current =
       typeof state.numplayers === "number"
         ? state.numplayers
-        : Array.isArray(state.players)
+        : "players" in state && Array.isArray(state.players)
           ? state.players.length
           : null;
     if (current == null) {
@@ -127,7 +143,7 @@ export async function queryGamePlayersDetailed(
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     logger.debug({ type, host, port, reason: detail }, "Game server player query failed");
-    return { players: null, reason: classifyQueryError(detail), detail };
+    return { players: null, reason: err instanceof UnsafeUrlError ? "unreachable" : classifyQueryError(detail), detail };
   }
 }
 

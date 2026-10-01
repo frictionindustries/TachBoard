@@ -63,3 +63,4 @@
 - [Release update check](update-check.md) — APP_VERSION/APP_REPO stamped via esbuild define at release; GET /api/version, 24h-cached failure-tolerant GitHub check, UPDATE_CHECK_DISABLED opt-out.
 - [Package-manager distribution](package-manager-distribution.md) — packaging/ templates + render-packaging.mjs render Homebrew/winget/TrueNAS manifests per tag; new bundle targets must join ARCHIVES or render fails.
 - [Picture Frame tile](pictureframe-tile.md) — album photos come as authed /api/widgets/photos proxy paths (blob-fetch w/ token); Google baseUrls re-resolved per request; sample- albumIds = demo mode; frames drawn as padding+background.
+- [Public-only protocol targets](public-only-protocol-targets.md) — IMAP, CalDAV, and metadata-derived game probes must not inherit the homelab HTTP client's private-network allowance.

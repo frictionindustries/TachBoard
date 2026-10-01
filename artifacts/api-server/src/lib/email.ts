@@ -2,6 +2,7 @@ import { cloudHttpClient } from "./http.js";
 import { getGoogleAccessToken } from "./google.js";
 import { cachedFetch, invalidateFetchCache } from "./fetchCache.js";
 import type { ImapAccount } from "./mailAccounts.js";
+import { resolvePublicHost, validateOutboundPort } from "./outboundTargets.js";
 
 // ── Mail fetchers (Gmail REST + generic IMAP) ─────────────────────────────────
 // Both providers normalize into the same EmailMessage shape the widget route
@@ -272,18 +273,7 @@ async function fetchImapMessageBodyUncached(
   account: ImapAccount,
   uid: number,
 ): Promise<string | null> {
-  const { ImapFlow } = await import("imapflow");
-  const client = new ImapFlow({
-    host: account.host,
-    port: account.port,
-    secure: account.secure,
-    auth: { user: account.username, pass: account.password },
-    logger: false,
-    socketTimeout: IMAP_TIMEOUT_MS,
-    greetingTimeout: IMAP_TIMEOUT_MS,
-    connectionTimeout: IMAP_TIMEOUT_MS,
-  });
-
+  const client = await createImapClient(account);
   await client.connect();
   try {
     const lock = await client.getMailboxLock("INBOX");
@@ -356,6 +346,28 @@ export async function markGmailMessageRead(
 // must not hang the whole aggregated inbox request.
 const IMAP_TIMEOUT_MS = 15_000;
 
+async function createImapClient(account: ImapAccount) {
+  const { ImapFlow } = await import("imapflow");
+  validateOutboundPort(account.port);
+  // Revalidate saved/imported accounts at every connection, not just on save.
+  const target = await resolvePublicHost(account.host);
+  // ImapFlow passes host directly to net/tls.connect and retains servername
+  // for STARTTLS on the same socket. A numeric host prevents another DNS
+  // lookup; only explicitly selected options are passed (never a proxy).
+  return new ImapFlow({
+    host: target.address,
+    servername: target.host,
+    port: account.port,
+    secure: account.secure,
+    tls: { rejectUnauthorized: true },
+    auth: { user: account.username, pass: account.password },
+    logger: false,
+    socketTimeout: IMAP_TIMEOUT_MS,
+    greetingTimeout: IMAP_TIMEOUT_MS,
+    connectionTimeout: IMAP_TIMEOUT_MS,
+  });
+}
+
 // Cached wrapper — avoids opening a fresh IMAP connection per tile refresh
 // and dedupes concurrent logins to the same mailbox (see fetchCache.ts).
 export function fetchImapMessages(
@@ -374,18 +386,7 @@ async function fetchImapMessagesUncached(
   account: ImapAccount,
   opts: { max: number; unreadOnly: boolean },
 ): Promise<{ messages: EmailMessage[]; unread: number | null }> {
-  const { ImapFlow } = await import("imapflow");
-  const client = new ImapFlow({
-    host: account.host,
-    port: account.port,
-    secure: account.secure,
-    auth: { user: account.username, pass: account.password },
-    logger: false,
-    socketTimeout: IMAP_TIMEOUT_MS,
-    greetingTimeout: IMAP_TIMEOUT_MS,
-    connectionTimeout: IMAP_TIMEOUT_MS,
-  });
-
+  const client = await createImapClient(account);
   await client.connect();
   try {
     const lock = await client.getMailboxLock("INBOX");
@@ -453,18 +454,7 @@ async function fetchImapMessagesUncached(
 // mailbox literally named "Archive"/"Archives". Fails with a clear error when
 // the server has no such folder rather than guessing at a destination.
 export async function archiveImapMessage(account: ImapAccount, uid: number): Promise<void> {
-  const { ImapFlow } = await import("imapflow");
-  const client = new ImapFlow({
-    host: account.host,
-    port: account.port,
-    secure: account.secure,
-    auth: { user: account.username, pass: account.password },
-    logger: false,
-    socketTimeout: IMAP_TIMEOUT_MS,
-    greetingTimeout: IMAP_TIMEOUT_MS,
-    connectionTimeout: IMAP_TIMEOUT_MS,
-  });
-
+  const client = await createImapClient(account);
   await client.connect();
   try {
     const boxes = await client.list();
@@ -492,18 +482,7 @@ export async function archiveImapMessage(account: ImapAccount, uid: number): Pro
 // Mark one IMAP message as read by adding the \Seen flag. Additive (unlike the
 // archive move) — the message stays in INBOX, just flagged read.
 export async function markImapMessageRead(account: ImapAccount, uid: number): Promise<void> {
-  const { ImapFlow } = await import("imapflow");
-  const client = new ImapFlow({
-    host: account.host,
-    port: account.port,
-    secure: account.secure,
-    auth: { user: account.username, pass: account.password },
-    logger: false,
-    socketTimeout: IMAP_TIMEOUT_MS,
-    greetingTimeout: IMAP_TIMEOUT_MS,
-    connectionTimeout: IMAP_TIMEOUT_MS,
-  });
-
+  const client = await createImapClient(account);
   await client.connect();
   try {
     const lock = await client.getMailboxLock("INBOX");

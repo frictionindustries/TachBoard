@@ -164,6 +164,7 @@ function isBlockedIpv6(ip: string, publicOnly: boolean): boolean {
     return true; // ::1 (loopback)
   }
   if ((g0 & 0xffc0) === 0xfe80) return true; // link-local fe80::/10
+  if ((g0 & 0xff00) === 0xff00) return true; // multicast
 
   // IPv4-mapped (::ffff:0:0/96) and NAT64 well-known prefix (64:ff9b::/96)
   // both carry a literal IPv4 address in the last 32 bits — validate that
@@ -175,14 +176,19 @@ function isBlockedIpv6(ip: string, publicOnly: boolean): boolean {
     return isBlockedIpv4(ipv6GroupsToIpv4(g6, g7), publicOnly);
   }
 
-  if (publicOnly && (g0 & 0xfe00) === 0xfc00) return true; // unique local fc00::/7
+  // Public socket destinations must be global unicast. Exclude transition
+  // mechanisms that can embed an unchecked IPv4 endpoint (6to4/Teredo), plus
+  // deprecated compatible/site-local addresses and unique-local space.
+  if (publicOnly && ((g0 & 0xe000) !== 0x2000 || g0 === 0x2002 ||
+      (g0 === 0x2001 && g1 === 0))) return true;
   return false;
 }
 
 // Exported so the classification rules can be unit-tested directly, without
 // spinning up real sockets or DNS lookups.
 export function isSsrfBlockedIp(ip: string, publicOnly: boolean): boolean {
-  return net.isIPv6(ip) ? isBlockedIpv6(ip, publicOnly) : isBlockedIpv4(ip, publicOnly);
+  if (net.isIPv6(ip)) return isBlockedIpv6(ip, publicOnly);
+  return !net.isIPv4(ip) || isBlockedIpv4(ip, publicOnly);
 }
 
 // Validates the destination of every `httpClient` request and pins its
@@ -205,7 +211,12 @@ httpClient.interceptors.request.use(async (config) => {
 
   let resolved: Array<{ address: string; family: 4 | 6 }>;
   try {
-    resolved = (await dns.lookup(target.hostname, { all: true, verbatim: true })) as Array<{
+    // WHATWG URL keeps IPv6 brackets; sockets/DNS require the bare address.
+    const hostname = target.hostname.replace(/^\[|\]$/g, "");
+    const family = net.isIP(hostname);
+    resolved = (family
+      ? [{ address: hostname, family }]
+      : await dns.lookup(hostname, { all: true, verbatim: true })) as Array<{
       address: string;
       family: 4 | 6;
     }>;

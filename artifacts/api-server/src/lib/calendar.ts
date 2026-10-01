@@ -1,6 +1,7 @@
 import { cloudHttpClient } from "./http.js";
 import { getGoogleAccessToken } from "./google.js";
 import { cachedFetch } from "./fetchCache.js";
+import { createCalDavTransport } from "./caldavTransport.js";
 import type { CalDavAccount } from "./mailAccounts.js";
 
 // ── Calendar fetchers (Google Calendar REST + generic CalDAV) ────────────────
@@ -255,12 +256,15 @@ async function fetchCalDavEventsUncached(
   opts: { daysAhead: number; max: number },
 ): Promise<CalendarEvent[]> {
   const { createDAVClient } = await import("tsdav");
+  const transport = createCalDavTransport();
   const client = await createDAVClient({
     serverUrl: account.url,
     credentials: { username: account.username, password: account.password },
     authMethod: "Basic",
     defaultAccountType: "caldav",
+    fetch: transport.fetch,
   });
+  transport.assertSafe();
 
   const now = new Date();
   const windowEnd = new Date(now.getTime() + opts.daysAhead * 86_400_000);
@@ -302,6 +306,7 @@ async function fetchCalDavEventsUncached(
   );
 
   const events = perCal.flat();
+  transport.assertSafe();
   events.sort((a, b) => (a.start < b.start ? -1 : 1));
   return events.slice(0, opts.max);
 }

@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import express, { type Express } from "express";
 import request from "supertest";
 
+const { dnsLookup } = vi.hoisted(() => ({ dnsLookup: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ default: { lookup: dnsLookup } }));
+
 // Pass-through auth so routes can be exercised without a real JWT.
 vi.mock("../lib/auth.js", () => ({
   requireAuth: (req: { user?: { userId: number } }, _res: unknown, next: () => void) => {
@@ -46,7 +49,8 @@ vi.mock("../lib/logger.js", () => ({
 
 // The connections router also imports http + integration health helpers for
 // the single-connection routes; stub them so importing the module is cheap.
-vi.mock("../lib/http.js", () => ({
+vi.mock("../lib/http.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../lib/http.js")>(),
   httpClient: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
   cloudHttpClient: { get: vi.fn(), post: vi.fn() },
   normalizeBaseUrl: (url: string | undefined | null) => url ?? undefined,
@@ -56,6 +60,7 @@ vi.mock("../lib/http.js", () => ({
 
 const { default: connectionsRouter } = await import("./connections.js");
 const { default: googleRouter } = await import("./google.js");
+const { addImapAccount } = await import("../lib/mailAccounts.js");
 
 function makeApp(): Express {
   const app = express();
@@ -68,9 +73,22 @@ function makeApp(): Express {
 const app = makeApp();
 
 beforeEach(() => {
+  dnsLookup.mockReset();
+  dnsLookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
   rows.clear();
   findByService.mockClear();
   upsertRun.mockClear();
+});
+
+describe("IMAP account storage port validation", () => {
+  it.each([0, -1, 65536, 993.5, NaN, Infinity])(
+    "rejects invalid port %s for callers outside the route", (port) => {
+      expect(() => addImapAccount(1, {
+        host: "imap.example.com", port, username: "u", password: "pw",
+      })).toThrow("Port must be an integer");
+      expect(upsertRun).not.toHaveBeenCalled();
+    },
+  );
 });
 
 // ── IMAP accounts ────────────────────────────────────────────────────────────
@@ -78,7 +96,7 @@ describe("POST /connections/imap/accounts", () => {
   it("stores secure=false for plain/STARTTLS setups and defaults port to 143 semantics", async () => {
     const res = await request(app).post("/connections/imap/accounts").send({
       label: "Plain box",
-      host: "mail.lan",
+      host: "mail.example.com",
       port: 143,
       secure: false,
       username: "u",
@@ -86,7 +104,7 @@ describe("POST /connections/imap/accounts", () => {
     });
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
-    expect(res.body[0]).toMatchObject({ host: "mail.lan", port: 143, secure: false });
+    expect(res.body[0]).toMatchObject({ host: "mail.example.com", port: 143, secure: false });
     // Never leak the password back to the browser.
     expect(res.body[0]).not.toHaveProperty("password");
     // The persisted row must carry secure:false too (it drives the imapflow
@@ -105,6 +123,58 @@ describe("POST /connections/imap/accounts", () => {
     expect(res.status).toBe(200);
     expect(res.body[0]).toMatchObject({ port: 993, secure: true });
   });
+
+  it("trims the saved host without substituting the save-time DNS address", async () => {
+    const res = await request(app).post("/connections/imap/accounts").send({
+      host: "  imap.example.com  ",
+      username: "u",
+      password: "pw",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body[0].host).toBe("imap.example.com");
+    expect(dnsLookup).toHaveBeenCalledWith("imap.example.com", { all: true, verbatim: true });
+  });
+
+  it.each([
+    "127.0.0.1", "169.254.169.254", "10.0.0.1", "172.16.0.1",
+    "192.168.1.1", "100.64.0.1", "::1", "fe80::1", "fd00::1",
+    "::ffff:c0a8:1", "http://imap.example.com", "imap.example.com:993",
+  ])("rejects unsafe IMAP host %s without saving it", async (host) => {
+    const res = await request(app).post("/connections/imap/accounts")
+      .send({ host, username: "u", password: "pw" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toEqual(expect.any(String));
+    expect(upsertRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects a hostname with mixed public/private DNS answers", async () => {
+    dnsLookup.mockResolvedValue([
+      { address: "8.8.8.8", family: 4 },
+      { address: "192.168.1.1", family: 4 },
+    ]);
+    const res = await request(app).post("/connections/imap/accounts")
+      .send({ host: "mail.example.com", username: "u", password: "pw" });
+    expect(res.status).toBe(400);
+    expect(upsertRun).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 on DNS failure without saving credentials", async () => {
+    dnsLookup.mockRejectedValue(new Error("getaddrinfo ENOTFOUND"));
+    const res = await request(app).post("/connections/imap/accounts")
+      .send({ host: "mail.example.com", username: "u", password: "pw" });
+    expect(res.status).toBe(400);
+    expect(upsertRun).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, 65536, 993.5, "993", false])(
+    "rejects invalid IMAP port %s instead of coercing/defaulting it", async (port) => {
+      const res = await request(app).post("/connections/imap/accounts")
+        .send({ host: "mail.example.com", port, username: "u", password: "pw" });
+      expect(res.status).toBe(400);
+      expect(upsertRun).not.toHaveBeenCalled();
+      expect(dnsLookup).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects a submission missing required fields", async () => {
     const res = await request(app)
@@ -146,6 +216,46 @@ describe("POST /connections/imap/accounts", () => {
     });
     expect(res.status).toBe(200);
     expect(res.body[0].webmailUrl).toBeNull();
+  });
+});
+
+// ── CalDAV accounts ──────────────────────────────────────────────────────────
+describe("POST /connections/caldav/accounts", () => {
+  it.each(["http:", "https:"])("accepts a public %s URL and redacts passwords", async (scheme) => {
+    const url = `${scheme}//calendar.example.com/dav/`;
+    const res = await request(app).post("/connections/caldav/accounts")
+      .send({ url, username: "u", password: "pw" });
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ url, username: "u" });
+    expect(res.body[0]).not.toHaveProperty("password");
+    expect(dnsLookup).toHaveBeenCalledWith("calendar.example.com", { all: true, verbatim: true });
+    expect(JSON.parse(rows.get("1:caldav")?.extra ?? "[]")[0].password).toBe("pw");
+  });
+
+  it.each([
+    "http://127.0.0.1/dav", "http://169.254.169.254/dav",
+    "http://10.0.0.1/dav", "https://192.168.1.1/dav",
+    "http://[::1]/dav", "https://[fd00::1]/dav",
+    "http://[::ffff:c0a8:1]/dav", "file:///etc/passwd",
+    "ftp://calendar.example.com/dav", "calendar.example.com/dav",
+    "http://calendar.example.com:0/dav", "https://calendar.example.com:65536/dav",
+  ])("rejects unsafe CalDAV URL %s without saving it", async (url) => {
+    const res = await request(app).post("/connections/caldav/accounts")
+      .send({ url, username: "u", password: "pw" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toEqual(expect.any(String));
+    expect(upsertRun).not.toHaveBeenCalled();
+  });
+
+  it("rejects public/private mixed DNS answers for CalDAV", async () => {
+    dnsLookup.mockResolvedValue([
+      { address: "8.8.8.8", family: 4 },
+      { address: "fd00::1", family: 6 },
+    ]);
+    const res = await request(app).post("/connections/caldav/accounts")
+      .send({ url: "https://calendar.example.com/dav", username: "u", password: "pw" });
+    expect(res.status).toBe(400);
+    expect(upsertRun).not.toHaveBeenCalled();
   });
 });
 

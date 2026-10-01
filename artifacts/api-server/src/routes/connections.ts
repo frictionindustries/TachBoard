@@ -23,6 +23,7 @@ import {
 } from "../lib/aiAccounts.js";
 import { aiTestKey } from "../lib/aiProviders.js";
 import { normalizeHttpError } from "../lib/http.js";
+import { resolvePublicHost, validateOutboundPort } from "../lib/outboundTargets.js";
 import {
   runPing,
   connectionToValues,
@@ -128,7 +129,7 @@ router.get("/imap/accounts", requireAuth, (req: AuthRequest, res) => {
 });
 
 // POST /api/connections/imap/accounts
-router.post("/imap/accounts", requireAuth, (req: AuthRequest, res) => {
+router.post("/imap/accounts", requireAuth, async (req: AuthRequest, res) => {
   const body = (req.body ?? {}) as {
     label?: string | null;
     host?: string;
@@ -138,14 +139,26 @@ router.post("/imap/accounts", requireAuth, (req: AuthRequest, res) => {
     password?: string;
     webmailUrl?: string | null;
   };
-  if (!body.host?.trim() || !body.username?.trim() || !body.password) {
+  if (
+    typeof body.host !== "string" || !body.host.trim() ||
+    typeof body.username !== "string" || !body.username.trim() ||
+    typeof body.password !== "string" || !body.password
+  ) {
     res.status(400).json({ error: "host, username and password are required" });
     return;
   }
+  const port = body.port ?? 993;
+  try {
+    validateOutboundPort(port);
+    await resolvePublicHost(body.host.trim());
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Invalid IMAP destination" });
+    return;
+  }
   const accounts = addImapAccount(req.user!.userId, {
-    label: body.label ?? null,
+    label: typeof body.label === "string" ? body.label : null,
     host: body.host,
-    port: typeof body.port === "number" ? body.port : null,
+    port,
     secure: typeof body.secure === "boolean" ? body.secure : null,
     username: body.username,
     password: body.password,
@@ -170,19 +183,34 @@ router.get("/caldav/accounts", requireAuth, (req: AuthRequest, res) => {
 });
 
 // POST /api/connections/caldav/accounts
-router.post("/caldav/accounts", requireAuth, (req: AuthRequest, res) => {
+router.post("/caldav/accounts", requireAuth, async (req: AuthRequest, res) => {
   const body = (req.body ?? {}) as {
     label?: string | null;
     url?: string;
     username?: string;
     password?: string;
   };
-  if (!body.url?.trim() || !body.username?.trim() || !body.password) {
+  if (
+    typeof body.url !== "string" || !body.url.trim() ||
+    typeof body.username !== "string" || !body.username.trim() ||
+    typeof body.password !== "string" || !body.password
+  ) {
     res.status(400).json({ error: "url, username and password are required" });
     return;
   }
+  try {
+    const target = new URL(body.url.trim());
+    if (target.protocol !== "http:" && target.protocol !== "https:") {
+      throw new Error("Only http:// and https:// URLs are allowed.");
+    }
+    validateOutboundPort(Number(target.port || (target.protocol === "https:" ? 443 : 80)));
+    await resolvePublicHost(target.hostname);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Invalid CalDAV destination" });
+    return;
+  }
   const accounts = addCalDavAccount(req.user!.userId, {
-    label: body.label ?? null,
+    label: typeof body.label === "string" ? body.label : null,
     url: body.url,
     username: body.username,
     password: body.password,

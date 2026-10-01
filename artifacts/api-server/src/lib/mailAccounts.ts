@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { connectionStmts } from "./db.js";
 import { invalidateFetchCache } from "./fetchCache.js";
+import { validateOutboundPort } from "./outboundTargets.js";
 
 // ── Multi-account storage for IMAP and CalDAV ─────────────────────────────────
 // Unlike the single-connection services, users can add several IMAP mailboxes
@@ -94,12 +95,14 @@ export function addImapAccount(
     webmailUrl?: string | null;
   },
 ): ImapAccount[] {
+  const port = input.port ?? 993;
+  validateOutboundPort(port);
   const accounts = listImapAccounts(userId);
   accounts.push({
     id: newId(),
     label: input.label?.trim() || input.username,
     host: input.host.trim(),
-    port: input.port && Number.isFinite(input.port) ? Math.trunc(input.port) : 993,
+    port,
     secure: input.secure ?? true,
     username: input.username.trim(),
     password: input.password,
