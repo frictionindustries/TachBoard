@@ -84,7 +84,9 @@ for (const name of RUNTIME_EXTERNALS) {
 }
 fs.writeFileSync(
   path.join(stage, "package.json"),
-  JSON.stringify({ name: "tachboard-bundle", private: true, version: "0.0.0", dependencies: deps }, null, 2),
+  // npm does not inherit pnpm workspace overrides. Keep the security floor
+  // for jsdom's HTTP client in standalone bundles as well.
+  JSON.stringify({ name: "tachboard-bundle", private: true, version: "0.0.0", dependencies: deps, overrides: { undici: "^7.29.1" } }, null, 2),
 );
 console.log(`[package] npm install runtime externals: ${JSON.stringify(deps)}`);
 execFileSync("npm", ["install", "--omit=dev", "--no-audit", "--no-fund", "--no-package-lock", "--loglevel=error"], {

@@ -61,6 +61,7 @@
 - [AI chat streaming mode](ai-chat-streaming.md) — stream:true → NDJSON delta lines; per-provider SSE/NDJSON quirks; commit 200 on first delta so pre-stream failures still 502.
 - [Release pipeline](release-pipeline.md) — tag→CI builds multi-arch Docker + per-OS bundles; native modules installed ON target, ship exact `process.execPath` as bin/node; new externals must join RUNTIME_EXTERNALS; smoke test gates release.
 - [Release update check](update-check.md) — APP_VERSION/APP_REPO stamped via esbuild define at release; GET /api/version, 24h-cached failure-tolerant GitHub check, UPDATE_CHECK_DISABLED opt-out.
+- [Codegen catalog detection](codegen-catalog-detection.md) — explicitly pin generator library targets; pnpm catalog references can defeat auto-detection.
 - [Package-manager distribution](package-manager-distribution.md) — packaging/ templates + render-packaging.mjs render Homebrew/winget/TrueNAS manifests per tag; new bundle targets must join ARCHIVES or render fails.
 - [Picture Frame tile](pictureframe-tile.md) — album photos come as authed /api/widgets/photos proxy paths (blob-fetch w/ token); Google baseUrls re-resolved per request; sample- albumIds = demo mode; frames drawn as padding+background.
 - [Public-only protocol targets](public-only-protocol-targets.md) — IMAP, CalDAV, and metadata-derived game probes must not inherit the homelab HTTP client's private-network allowance.
