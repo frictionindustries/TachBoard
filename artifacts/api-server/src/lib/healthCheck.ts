@@ -1,6 +1,7 @@
 import { db, connectionStmts, healthStmts } from "./db.js";
 import { runPing, connectionToValues, isConfigured } from "./ping.js";
 import { logger } from "./logger.js";
+import { runAsOutboundUser } from "./outboundPolicy.js";
 
 const DEFAULT_INTERVAL_MS = 60_000;
 const STARTUP_DELAY_MS = 5_000;
@@ -35,7 +36,7 @@ export async function runHealthChecks(): Promise<void> {
             return;
           }
 
-          const result = await runPing(conn.service, values);
+          const result = await runAsOutboundUser(userId, () => runPing(conn.service, values));
           healthStmts.upsert.run(userId, conn.service, result.ok ? 1 : 0, result.message);
         }),
       );

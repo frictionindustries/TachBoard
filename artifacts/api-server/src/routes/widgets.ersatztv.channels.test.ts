@@ -19,6 +19,7 @@ vi.mock("../lib/auth.js", () => ({
 
 const findByService = vi.fn();
 vi.mock("../lib/db.js", () => ({
+  userStmts: { findFirst: { get: () => ({ id: 1 }) } },
   connectionStmts: {
     findByService: { get: (...args: unknown[]) => findByService(...args) },
     upsert: { run: vi.fn() },

@@ -470,6 +470,7 @@ export interface DbTile {
 // ── Prepared statements ───────────────────────────────────────────────────────
 
 export const userStmts = {
+  findFirst: db.prepare<[], Pick<DbUser, "id">>("SELECT id FROM users ORDER BY id ASC LIMIT 1"),
   findByUsername: db.prepare<[string], DbUser>("SELECT * FROM users WHERE username = ?"),
   findById: db.prepare<[number], DbUser>("SELECT * FROM users WHERE id = ?"),
   create: db.prepare<[string, string], { id: number }>(

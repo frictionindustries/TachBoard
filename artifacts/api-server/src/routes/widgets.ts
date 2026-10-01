@@ -1,10 +1,13 @@
-import { Router, type Response } from "express";
+import { Router, type Response, type ErrorRequestHandler } from "express";
 import { createHash } from "node:crypto";
 import { newBrowserBinding, setBrowserBinding, readBrowserBinding, clearBrowserBinding } from "../lib/oauthBrowser.js";
 import Parser from "rss-parser";
 import { requireAuth, verifyToken, type AuthRequest } from "../lib/auth.js";
 import { connectionStmts } from "../lib/db.js";
 import { httpClient, cloudHttpClient, normalizeBaseUrl, normalizeHttpError, describeHttpError } from "../lib/http.js";
+import { validateServiceBaseUrl, isServiceBaseUrlConnection, InvalidServiceBaseUrlError } from "../lib/serviceUrl.js";
+import { runAsOutboundUser } from "../lib/outboundPolicy.js";
+import { normalizeFeedUrl } from "../lib/feedUrl.js";
 import { fetchPiholeData } from "../lib/pihole.js";
 import { subsonicAuthParams, subsonicGet, subsonicMediaQuery, type SubsonicSong } from "../lib/subsonic.js";
 import { logger } from "../lib/logger.js";
@@ -94,7 +97,9 @@ function getSavedConnection(userId: number, service: string): SavedConnection {
   }
 
   return {
-    url: row.url?.trim() ? trimSlash(row.url.trim()) : undefined,
+    url: row.url ? (isServiceBaseUrlConnection(service)
+      ? validateServiceBaseUrl(row.url)
+      : trimSlash(row.url.trim()) || undefined) : undefined,
     apiKey: row.api_key?.trim() || undefined,
     username: row.username?.trim() || undefined,
     password: row.password ?? undefined,
@@ -121,7 +126,13 @@ function savedOrEnvironmentConnection(
   environment: SavedConnection,
 ): SavedConnection {
   const saved = getSavedConnection(userId, service);
-  return hasSavedConnection(saved) ? saved : environment;
+  if (hasSavedConnection(saved)) return saved;
+  return {
+    ...environment,
+    url: environment.url && isServiceBaseUrlConnection(service)
+      ? validateServiceBaseUrl(environment.url)
+      : environment.url,
+  };
 }
 
 function resolveMediaServerConnection(
@@ -139,7 +150,9 @@ function resolveMediaServerConnection(
   const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
   if (envType !== server) return {};
   return {
-    baseUrl: process.env["MEDIA_SERVER_URL"],
+    baseUrl: process.env["MEDIA_SERVER_URL"]
+      ? validateServiceBaseUrl(process.env["MEDIA_SERVER_URL"]!)
+      : undefined,
     apiKey: process.env["MEDIA_SERVER_API_KEY"],
   };
 }
@@ -5312,7 +5325,7 @@ function ersatzStreamAuth(req: AuthRequest, res: import("express").Response, nex
   }
   try {
     req.user = verifyToken(raw);
-    next();
+    runAsOutboundUser(req.user.userId, next);
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
   }
@@ -5797,7 +5810,7 @@ function clampNewsLimit(raw: unknown): number {
 router.get("/news", requireAuth, async (req, res) => {
   const rawUrl = typeof req.query["url"] === "string" ? req.query["url"].trim() : "";
   const limit = clampNewsLimit(req.query["limit"]);
-  const feedUrl = normalizeBaseUrl(rawUrl);
+  const feedUrl = rawUrl ? normalizeFeedUrl(rawUrl) : undefined;
 
   // Unconfigured (no feed URL): show representative demo headlines.
   if (!feedUrl) {
@@ -7081,5 +7094,16 @@ router.get("/ai/models", requireAuth, async (req: AuthRequest, res) => {
   const { models, live } = await aiListModels(account);
   res.json({ provider: account.provider, models, live, default: account.model ?? null });
 });
+
+// Helpers may reject legacy stored/env configuration before a handler's
+// upstream try/catch. Return a safe JSON error, not Express's HTML stack page.
+const serviceUrlErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+  if (err instanceof InvalidServiceBaseUrlError) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  next(err);
+};
+router.use(serviceUrlErrorHandler);
 
 export default router;

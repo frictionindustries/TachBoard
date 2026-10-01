@@ -23,6 +23,7 @@ import {
 } from "../lib/aiAccounts.js";
 import { aiTestKey } from "../lib/aiProviders.js";
 import { normalizeHttpError } from "../lib/http.js";
+import { validateServiceBaseUrl, isServiceBaseUrlConnection } from "../lib/serviceUrl.js";
 import { resolvePublicHost, validateOutboundPort } from "../lib/outboundTargets.js";
 import {
   runPing,
@@ -361,7 +362,7 @@ router.put("/:service", requireAuth, (req: AuthRequest, res) => {
     return;
   }
 
-  const body = req.body as {
+  const body = (req.body ?? {}) as {
     url?: string;
     apiKey?: string;
     username?: string;
@@ -369,12 +370,28 @@ router.put("/:service", requireAuth, (req: AuthRequest, res) => {
     token?: string;
   };
 
+  let url = body.url ?? null;
+  if (url != null && isServiceBaseUrlConnection(service)) {
+    if (typeof url !== "string") {
+      res.status(400).json({ error: "Invalid service URL: expected a string." });
+      return;
+    }
+    if (url !== "") {
+      try {
+        url = validateServiceBaseUrl(url);
+      } catch (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : "Invalid service URL." });
+        return;
+      }
+    }
+  }
+
   const extra = body.token !== undefined ? JSON.stringify({ token: body.token }) : null;
 
   connectionStmts.upsert.run(
     req.user!.userId,
     service,
-    body.url ?? null,
+    url,
     body.apiKey ?? null,
     body.username ?? null,
     body.password ?? null,

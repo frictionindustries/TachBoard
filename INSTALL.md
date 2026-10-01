@@ -5,6 +5,22 @@ browser. Pick the option for your platform. In every case, after starting it
 open **http://localhost:20028** (or `http://<host-ip>:20028` from another
 device) and register your account on first run.
 
+**Private-network access:** the earliest account in the database is treated as
+the instance owner for homelab HTTP integrations (the same convention used for
+legacy shared connections). Register this account before exposing a new
+instance to others. Only that account can reach private LAN, carrier-grade NAT,
+or IPv6 unique-local destinations. Other accounts can use public destinations;
+this restriction also applies to saved/imported connections, connection tests,
+streaming, and background health checks. Loopback and link-local destinations
+remain blocked for everyone. Integrations that already require public targets
+(such as mail/calendar and game-player probes) keep that stricter rule.
+
+Service URLs must be HTTP(S) base URLs, optionally with a reverse-proxy path
+prefix, but without credentials, queries, fragments, or path traversal. Existing
+invalid URLs must be corrected in Settings. Outbound homelab HTTP requests do
+not use environment HTTP proxies or follow redirects, so they cannot bypass
+destination checks.
+
 **What persists where (all platforms):** the SQLite database, uploaded
 images, and the auto-generated auth secret live in the *data directory*.
 Back it up; deleting it resets the app. If you don't set `JWT_SECRET`, a

@@ -17,6 +17,7 @@ import {
   applyLayoutUpdate,
 } from "./pages.js";
 import { createPageNameAllocator, importBudgetError } from "../lib/importBudget.js";
+import { validateServiceBaseUrl, isServiceBaseUrlConnection } from "../lib/serviceUrl.js";
 
 const router = Router();
 
@@ -133,6 +134,19 @@ router.post("/import", requireAuth, (req: AuthRequest, res) => {
     (c) => typeof c.service === "string" && SERVICE_KEY_RE.test(c.service),
   );
   const fileHasConnections = envelope.connections != null;
+
+  // Validate the entire file before the transaction can delete or write data,
+  // including entries a merge would otherwise skip.
+  try {
+    for (const conn of incomingConnections) {
+      if (isServiceBaseUrlConnection(conn.service) && conn.url != null && conn.url !== "") {
+        conn.url = validateServiceBaseUrl(conn.url);
+      }
+    }
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Invalid service URL." });
+    return;
+  }
 
   let pagesCreated = 0;
   let tilesCreated = 0;

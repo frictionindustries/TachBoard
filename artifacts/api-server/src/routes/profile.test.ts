@@ -109,6 +109,40 @@ describe("profile export", () => {
 });
 
 describe("profile import", () => {
+  it.each(["http://10.0.0.8/actuator/env?", "http://10.0.0.8/#"])(
+    "rejects imported service URL %s before any profile writes", async (url) => {
+      const beforePages = pageStmts.findAllByUser.all(2);
+      const beforeModes = deviceModeStmts.findAllByUser.all(2);
+      const beforeConnections = connectionStmts.findAllByUser.all(2);
+      const res = await request(app).post("/profile/import").set("x-user-id", "2").send({
+        format: "tachboard-profile", version: 1, mode: "replace",
+        deviceModes: [{ name: "Injected mode" }],
+        pages: [{ name: "Injected page", tiles: [] }],
+        connections: [{ service: "truenas", url, apiKey: "key" }],
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Invalid service URL");
+      expect(pageStmts.findAllByUser.all(2)).toEqual(beforePages);
+      expect(deviceModeStmts.findAllByUser.all(2)).toEqual(beforeModes);
+      expect(connectionStmts.findAllByUser.all(2)).toEqual(beforeConnections);
+    },
+  );
+
+  it("imports safe proxy prefixes and leaves non-URL connection formats alone", async () => {
+    const res = await request(app).post("/profile/import").set("x-user-id", "2").send({
+      format: "tachboard-profile", version: 1, mode: "merge", deviceModes: [], pages: [],
+      connections: [
+        { service: "immich", url: "10.0.0.8/proxy/immich/" },
+        { service: "tailscale", url: "user@example.com" },
+        { service: "stocks", url: "provider-specific-value" },
+        { service: "imap", extra: JSON.stringify({ accounts: [] }) },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(connectionStmts.findByService.get(2, "immich")?.url).toBe("http://10.0.0.8/proxy/immich");
+    expect(connectionStmts.findByService.get(2, "tailscale")?.url).toBe("user@example.com");
+  });
+
   it("replace wipes and recreates pages, device modes, and connections", async () => {
     // Target user starts with their own content + a configured connection.
     const oldPage = await createPage(2, "OldStuff");

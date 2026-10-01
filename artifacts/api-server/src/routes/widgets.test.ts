@@ -122,6 +122,67 @@ function connRow(overrides: Record<string, unknown> = {}) {
 
 const app = makeApp();
 
+describe("service URL suffix injection regression", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each(["http://10.0.0.8/actuator/env?", "http://10.0.0.8/#"])(
+    "rejects saving %s before writes or upstream calls", async (url) => {
+      const res = await request(app).put("/connections/truenas").send({ url, apiKey: "key" });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Invalid service URL");
+      expect(upsertRun).not.toHaveBeenCalled();
+      expect(httpGet).not.toHaveBeenCalled();
+      expect(httpPost).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["stored", "http://10.0.0.8/actuator/env?"],
+    ["stored", "http://10.0.0.8/#"],
+    ["environment", "http://10.0.0.8/actuator/env?"],
+    ["environment", "http://10.0.0.8/#"],
+  ])("rejects an old %s diagnostic URL %s before any probes", async (source, url) => {
+    if (source === "stored") findByService.mockReturnValue(connRow({ url, api_key: "key" }));
+    else {
+      vi.stubEnv("TRUENAS_URL", url);
+      vi.stubEnv("TRUENAS_API_KEY", "key");
+    }
+    const res = await request(app).get("/widgets/truenas/diagnostics");
+    expect(res.status).toBe(400);
+    expect(res.type).toBe("application/json");
+    expect(res.body.error).toContain("Invalid service URL");
+    expect(httpGet).not.toHaveBeenCalled();
+    expect(httpPost).not.toHaveBeenCalled();
+    expect(JSON.stringify(res.body)).not.toContain("actuator");
+  });
+
+  it("rejects the legacy media environment URL before fetching", async () => {
+    vi.stubEnv("MEDIA_SERVER_TYPE", "jellyfin");
+    vi.stubEnv("MEDIA_SERVER_URL", "http://10.0.0.8/actuator/env?");
+    vi.stubEnv("MEDIA_SERVER_API_KEY", "key");
+    const res = await request(app).get("/widgets/media?server=jellyfin");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Invalid service URL");
+    expect(httpGet).not.toHaveBeenCalled();
+  });
+
+  it("saves a safe proxy prefix without stripping it", async () => {
+    findByService.mockReturnValue(connRow({ url: "http://10.0.0.8/proxy/truenas" }));
+    const res = await request(app).put("/connections/truenas")
+      .send({ url: "10.0.0.8/proxy/truenas/", apiKey: "key" });
+    expect(res.status).toBe(200);
+    expect(upsertRun).toHaveBeenCalledWith(
+      1, "truenas", "http://10.0.0.8/proxy/truenas", "key", null, null, null,
+    );
+  });
+
+  it("does not treat a Tailscale tailnet as a service URL", async () => {
+    findByService.mockReturnValue(connRow({ service: "tailscale", url: "user@example.com" }));
+    const res = await request(app).put("/connections/tailscale").send({ url: "user@example.com" });
+    expect(res.status).toBe(200);
+  });
+});
+
 // An axios-style error carrying an HTTP status (used to assert 502 behavior).
 function httpError(status = 500): Error {
   return Object.assign(new Error(`status ${status}`), {

@@ -67,3 +67,4 @@
 - [Public-only protocol targets](public-only-protocol-targets.md) — IMAP, CalDAV, and metadata-derived game probes must not inherit the homelab HTTP client's private-network allowance.
 - [Upstream resource budgets](upstream-resource-budgets.md) — scope response-size limits to buffering consumers; global RSS-sized limits would break legitimate homelab transfers.
 - [Authentication resource policy](auth-resource-policy.md) — harden existing flows rather than add approval features; proxy-aware identity requires a verified trust boundary.
+- [Homelab outbound authorization](homelab-outbound-authorization.md) — earliest account retains LAN HTTP access; other or missing identities stay public-only, including streaming and scheduled work.

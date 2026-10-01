@@ -2,6 +2,8 @@ import axios, { type AxiosInstance } from "axios";
 import https from "https";
 import dns from "node:dns/promises";
 import net from "node:net";
+import { publicOnlyOutboundRequired } from "./outboundContext.js";
+import { validateServiceBaseUrl } from "./serviceUrl.js";
 
 // Extra, non-standard axios config recognized by the SSRF guard below.
 declare module "axios" {
@@ -9,9 +11,8 @@ declare module "axios" {
     // When true, the destination must resolve to a public (non-private,
     // non-loopback, non-link-local) address. Used for routes that fetch
     // arbitrary internet content on the user's behalf (e.g. the news feed
-    // proxy). Left unset (false) for routes that intentionally talk to the
-    // user's own LAN/homelab devices (service connection tests, widget
-    // fetches), where private-range destinations are the whole point.
+    // proxy). Only the instance owner's authenticated context can leave this
+    // unset to reach LAN services. False cannot weaken another user's policy.
     ssrfPublicOnly?: boolean;
   }
 }
@@ -90,8 +91,8 @@ const IPV4_ALWAYS_BLOCKED = [
   "255.255.255.255/32",
 ];
 
-// RFC1918 + carrier-grade-NAT private space. Homelab devices legitimately live
-// here, so it's only blocked when the caller opts into `ssrfPublicOnly`.
+// RFC1918 + carrier-grade-NAT private space. Only the instance owner may reach
+// these networks; explicit public-only callers stay restricted even for them.
 const IPV4_PRIVATE = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"];
 
 function isBlockedIpv4(ip: string, publicOnly: boolean): boolean {
@@ -227,7 +228,7 @@ httpClient.interceptors.request.use(async (config) => {
     throw new UnsafeUrlError("Could not reach service — check the URL and port.");
   }
 
-  const publicOnly = Boolean(config.ssrfPublicOnly);
+  const publicOnly = config.ssrfPublicOnly === true || publicOnlyOutboundRequired();
   if (resolved.some((a) => isSsrfBlockedIp(a.address, publicOnly))) {
     throw new UnsafeUrlError("That destination is not allowed.");
   }
@@ -244,11 +245,15 @@ httpClient.interceptors.request.use(async (config) => {
     }
   };
 
+  // Environment HTTP(S)_PROXY settings would resolve/connect through a different
+  // host and bypass the pinned socket destination.
+  config.proxy = false;
+
   // None of the endpoints proxied through `httpClient` need a redirect hop.
   // Axios follows redirects by default, which would let a same-host 3xx
   // smuggle the request to a completely different (unvalidated) host/port
-  // after the check above — disable it unless a caller explicitly needs it.
-  if (config.maxRedirects === undefined) config.maxRedirects = 0;
+  // after the check above. Redirects require a separately validated request.
+  config.maxRedirects = 0;
 
   return config;
 });
@@ -260,8 +265,7 @@ httpClient.interceptors.request.use(async (config) => {
 export function normalizeBaseUrl(url: string | undefined | null): string | undefined {
   const trimmed = url?.trim();
   if (!trimmed) return undefined;
-  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
-  return withScheme.replace(/\/+$/, "");
+  return validateServiceBaseUrl(trimmed);
 }
 
 // Turn an arbitrary thrown error (usually an AxiosError) into a short,

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import type { Request, Response, NextFunction } from "express";
+import { runAsOutboundUser } from "./outboundPolicy.js";
 
 // Known weak defaults shipped in compose files or docs — never use these as-is
 const KNOWN_WEAK_SECRETS = new Set([
@@ -86,7 +87,7 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   const token = authHeader.slice(7);
   try {
     req.user = verifyToken(token);
-    next();
+    runAsOutboundUser(req.user.userId, next);
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
   }
