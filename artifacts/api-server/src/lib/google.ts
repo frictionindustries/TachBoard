@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { matchesBrowserBinding } from "./oauthBrowser.js";
 import { cloudHttpClient } from "./http.js";
 import { connectionStmts } from "./db.js";
 import { logger } from "./logger.js";
@@ -113,6 +114,7 @@ interface GoogleTokens {
 // user started the flow so the callback links the account to the right owner.
 interface PendingAuth {
   userId: number;
+  browserBinding: string;
   redirectUri: string;
   returnTo: string;
   createdAt: number;
@@ -127,17 +129,17 @@ function prunePending(): void {
   }
 }
 
-export function createGooglePendingAuth(userId: number, redirectUri: string, returnTo: string): string {
+export function createGooglePendingAuth(userId: number, redirectUri: string, returnTo: string, browserBinding: string): string {
   prunePending();
   const state = randomBytes(16).toString("hex");
-  pendingAuth.set(state, { userId, redirectUri, returnTo, createdAt: Date.now() });
+  pendingAuth.set(state, { userId, redirectUri, returnTo, browserBinding, createdAt: Date.now() });
   return state;
 }
 
-export function consumeGooglePendingAuth(state: string): PendingAuth | null {
+export function consumeGooglePendingAuth(state: string, browserBinding: string | undefined): PendingAuth | null {
   prunePending();
   const entry = pendingAuth.get(state);
-  if (!entry) return null;
+  if (!entry || !matchesBrowserBinding(entry.browserBinding, browserBinding)) return null;
   pendingAuth.delete(state);
   return entry;
 }
@@ -150,7 +152,7 @@ export function consumeGooglePendingAuth(state: string): PendingAuth | null {
 // POST /connections/google/auth-intent to mint a short-lived single-use token
 // bound to the caller's userId, which the popup URL must present before the
 // flow may begin.
-const authIntents = new Map<string, { userId: number; createdAt: number }>();
+const authIntents = new Map<string, { userId: number; browserBinding: string; createdAt: number }>();
 const INTENT_TTL_MS = 5 * 60_000;
 
 function pruneIntents(): void {
@@ -160,18 +162,18 @@ function pruneIntents(): void {
   }
 }
 
-export function createGoogleAuthIntent(userId: number): string {
+export function createGoogleAuthIntent(userId: number, browserBinding: string): string {
   pruneIntents();
   const token = randomBytes(24).toString("hex");
-  authIntents.set(token, { userId, createdAt: Date.now() });
+  authIntents.set(token, { userId, browserBinding, createdAt: Date.now() });
   return token;
 }
 
 // Returns the userId the intent was minted for, or null if invalid/expired.
-export function consumeGoogleAuthIntent(token: string): number | null {
+export function consumeGoogleAuthIntent(token: string, browserBinding: string | undefined): number | null {
   pruneIntents();
   const entry = authIntents.get(token);
-  if (!entry) return null;
+  if (!entry || !matchesBrowserBinding(entry.browserBinding, browserBinding)) return null;
   authIntents.delete(token);
   return entry.userId;
 }

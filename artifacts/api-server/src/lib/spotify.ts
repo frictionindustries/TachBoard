@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { matchesBrowserBinding } from "./oauthBrowser.js";
 import { cloudHttpClient } from "./http.js";
 import { connectionStmts } from "./db.js";
 import { logger } from "./logger.js";
@@ -51,6 +52,7 @@ export interface SpotifyConnection {
 // started the flow so the callback links the account to the right owner.
 interface PendingAuth {
   userId: number;
+  browserBinding: string;
   redirectUri: string;
   returnTo: string;
   createdAt: number;
@@ -65,17 +67,17 @@ function prunePending(): void {
   }
 }
 
-export function createPendingAuth(userId: number, redirectUri: string, returnTo: string): string {
+export function createPendingAuth(userId: number, redirectUri: string, returnTo: string, browserBinding: string): string {
   prunePending();
   const state = randomBytes(16).toString("hex");
-  pendingAuth.set(state, { userId, redirectUri, returnTo, createdAt: Date.now() });
+  pendingAuth.set(state, { userId, redirectUri, returnTo, browserBinding, createdAt: Date.now() });
   return state;
 }
 
-export function consumePendingAuth(state: string): PendingAuth | null {
+export function consumePendingAuth(state: string, browserBinding: string | undefined): PendingAuth | null {
   prunePending();
   const entry = pendingAuth.get(state);
-  if (!entry) return null;
+  if (!entry || !matchesBrowserBinding(entry.browserBinding, browserBinding)) return null;
   pendingAuth.delete(state);
   return entry;
 }

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { newBrowserBinding, setBrowserBinding } from "../lib/oauthBrowser.js";
 import { requireAuth, type AuthRequest } from "../lib/auth.js";
 import { logger } from "../lib/logger.js";
 import { normalizeHttpError } from "../lib/http.js";
@@ -91,7 +92,10 @@ router.get("/status", requireAuth, async (req: AuthRequest, res) => {
 // the bearer token, so without this guard any unauthenticated visitor could
 // bind their own Google account to another user's link.
 router.post("/auth-intent", requireAuth, (req: AuthRequest, res) => {
-  res.json({ intent: createGoogleAuthIntent(req.user!.userId) });
+  const binding = newBrowserBinding();
+  const intent = createGoogleAuthIntent(req.user!.userId, binding);
+  setBrowserBinding(req, res, intent, binding);
+  res.json({ intent });
 });
 
 // PUT /api/connections/google/credentials — save the OAuth client ID/secret

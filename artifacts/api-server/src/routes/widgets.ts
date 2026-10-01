@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import { newBrowserBinding, setBrowserBinding, readBrowserBinding, clearBrowserBinding } from "../lib/oauthBrowser.js";
 import Parser from "rss-parser";
 import { requireAuth, verifyToken, type AuthRequest } from "../lib/auth.js";
 import { connectionStmts } from "../lib/db.js";
@@ -6283,11 +6284,12 @@ function originFromRequest(req: {
 // post-auth return URL.
 router.get("/gmail/auth", (req, res) => {
   const intent = typeof req.query["intent"] === "string" ? req.query["intent"] : "";
-  const userId = intent ? consumeGoogleAuthIntent(intent) : null;
+  const userId = intent ? consumeGoogleAuthIntent(intent, readBrowserBinding(req, intent)) : null;
   if (!userId) {
     res.status(403).send("Missing or expired authorization. Start the flow from Settings.");
     return;
   }
+  clearBrowserBinding(req, res, intent);
   if (!isGoogleConfigured(userId)) {
     res
       .status(400)
@@ -6306,19 +6308,22 @@ router.get("/gmail/auth", (req, res) => {
   const redirectUri = `${hostOrigin.replace(/\/+$/, "")}${GMAIL_CALLBACK_PATH}`;
   const returnTo = `${base.replace(/\/+$/, "")}/settings`;
   logger.info({ redirectUri }, "Google OAuth start");
-  const state = createGooglePendingAuth(userId, redirectUri, returnTo);
+  const binding = newBrowserBinding();
+  const state = createGooglePendingAuth(userId, redirectUri, returnTo, binding);
+  setBrowserBinding(req, res, state, binding);
   res.redirect(buildGoogleAuthUrl(userId, redirectUri, state));
 });
 
 // GET /api/widgets/gmail/callback — Google redirects the browser here.
 // Unauthenticated by necessity (top-level navigation can't carry the bearer
-// token); protected by the single-use `state` value instead.
+// token); protected by single-use state AND an initiating-browser cookie.
 router.get("/gmail/callback", async (req, res) => {
   const code = typeof req.query["code"] === "string" ? req.query["code"] : null;
   const state = typeof req.query["state"] === "string" ? req.query["state"] : null;
   const error = typeof req.query["error"] === "string" ? req.query["error"] : null;
 
-  const pending = state ? consumeGooglePendingAuth(state) : null;
+  const pending = state ? consumeGooglePendingAuth(state, readBrowserBinding(req, state)) : null;
+  if (pending) clearBrowserBinding(req, res, state!);
   const fallbackReturn = `${originFromRequest(req).replace(/\/+$/, "")}/settings`;
   const returnTo = pending?.returnTo || fallbackReturn;
   // `reason` gives Settings enough context for targeted help instead of a

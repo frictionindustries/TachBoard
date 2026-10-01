@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { newBrowserBinding, setBrowserBinding, readBrowserBinding, clearBrowserBinding } from "../lib/oauthBrowser.js";
 import { requireAuth, type AuthRequest } from "../lib/auth.js";
 import { logger } from "../lib/logger.js";
 import { normalizeHttpError } from "../lib/http.js";
@@ -98,20 +99,22 @@ router.post("/authorize", requireAuth, (req: AuthRequest, res) => {
   }
   const redirectUri = redirectUriFor(hostOrigin);
   const returnTo = `${base.replace(/\/+$/, "")}/settings`;
-  const state = createPendingAuth(userId, redirectUri, returnTo);
+  const binding = newBrowserBinding();
+  const state = createPendingAuth(userId, redirectUri, returnTo, binding);
+  setBrowserBinding(req, res, state, binding);
   res.json({ url: buildAuthorizeUrl(conn.clientId, redirectUri, state) });
 });
 
 // GET /api/connections/spotify/callback — Spotify redirects the browser here.
 // Unauthenticated by necessity (top-level navigation can't carry the bearer
-// token); protected by the single-use `state` value instead, which also
-// carries the userId that started the flow.
+// token); protected by single-use state AND an initiating-browser cookie.
 router.get("/callback", async (req, res) => {
   const code = typeof req.query["code"] === "string" ? req.query["code"] : null;
   const state = typeof req.query["state"] === "string" ? req.query["state"] : null;
   const error = typeof req.query["error"] === "string" ? req.query["error"] : null;
 
-  const pending = state ? consumePendingAuth(state) : null;
+  const pending = state ? consumePendingAuth(state, readBrowserBinding(req, state)) : null;
+  if (pending) clearBrowserBinding(req, res, state!);
   const fallbackReturn = `${originFromRequest(req).replace(/\/+$/, "")}/settings`;
   const returnTo = pending?.returnTo || fallbackReturn;
   const settingsUrl = (status: string) => `${returnTo}?spotify=${status}`;

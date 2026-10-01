@@ -2813,6 +2813,80 @@ describe("GET /widgets/calendar/events", () => {
 // it must demand a single-use intent token minted via the authenticated
 // /connections/google/auth-intent route.
 describe("GET /widgets/gmail/auth", () => {
+  it("links only in the browser that minted the intent and rejects callback replay", async () => {
+    const { default: googleRouter } = await import("./google.js");
+    const oauthApp = makeApp();
+    oauthApp.use("/connections/google", googleRouter);
+    findByService.mockImplementation((_userId, service) => service === "google"
+      ? connRow({ extra: JSON.stringify({ clientId: "test-client", clientSecret: "test-secret" }) })
+      : undefined);
+    cloudPost.mockResolvedValue({ data: { access_token: "test-access", refresh_token: "test-refresh", expires_in: 3600 } });
+    cloudGet.mockResolvedValue({ data: { email: "oauth-test@example.invalid" } });
+    const minted = await request(oauthApp).post("/connections/google/auth-intent");
+    expect(minted.status).toBe(200);
+    const intent = minted.body.intent;
+    const intentCookie = minted.headers["set-cookie"][0].split(";")[0];
+    expect(minted.headers["set-cookie"][0]).toContain("HttpOnly");
+    expect(minted.headers["set-cookie"][0]).toContain("SameSite=Lax");
+    expect(minted.body).not.toHaveProperty("browserBinding");
+    const sharedStart = await request(oauthApp).get("/widgets/gmail/auth").query({ intent });
+    expect(sharedStart.status).toBe(403);
+    const started = await request(oauthApp).get("/widgets/gmail/auth")
+      .query({ intent, origin: "http://localhost" }).set("Cookie", intentCookie);
+    expect(started.status).toBe(302);
+    const state = new URL(started.headers.location).searchParams.get("state")!;
+    const stateCookie = (started.headers["set-cookie"] as unknown as string[])
+      .find(c => c.startsWith(`tachboard-oauth-${state}=`))!.split(";")[0];
+    const startReplay = await request(oauthApp).get("/widgets/gmail/auth")
+      .query({ intent }).set("Cookie", intentCookie);
+    expect(startReplay.status).toBe(403);
+    const sharedCallback = await request(oauthApp).get("/widgets/gmail/callback")
+      .query({ state, code: "victim-code" });
+    expect(sharedCallback.headers.location).toContain("google=error");
+    expect(cloudPost).not.toHaveBeenCalled();
+    expect(upsertRun).not.toHaveBeenCalled();
+    const accepted = await request(oauthApp).get("/widgets/gmail/callback")
+      .query({ state, code: "owner-code" }).set("Cookie", stateCookie);
+    expect(accepted.headers.location).toContain("google=connected");
+    expect(accepted.headers["set-cookie"][0]).toContain("Expires=Thu, 01 Jan 1970");
+    expect(cloudPost).toHaveBeenCalledTimes(1);
+    expect(upsertRun.mock.calls.every(call => call[0] === 1)).toBe(true);
+    expect(upsertRun).toHaveBeenCalledTimes(2); // Gmail and Calendar mirror.
+    const replay = await request(oauthApp).get("/widgets/gmail/callback")
+      .query({ state, code: "replay" }).set("Cookie", stateCookie);
+    expect(replay.headers.location).toContain("google=error");
+    expect(cloudPost).toHaveBeenCalledTimes(1);
+    expect(upsertRun).toHaveBeenCalledTimes(2);
+  });
+
+  it("expires browser-bound intents and pending states", async () => {
+    const { createGoogleAuthIntent, consumeGoogleAuthIntent, createGooglePendingAuth, consumeGooglePendingAuth } =
+      await import("../lib/google.js");
+    vi.useFakeTimers();
+    try {
+      const binding = "a".repeat(64);
+      const intent = createGoogleAuthIntent(1, binding);
+      const state = createGooglePendingAuth(1, "http://localhost/callback", "http://localhost/settings", binding);
+      vi.advanceTimersByTime(5 * 60_000 + 1);
+      expect(consumeGoogleAuthIntent(intent, binding)).toBeNull();
+      vi.advanceTimersByTime(5 * 60_000);
+      expect(consumeGooglePendingAuth(state, binding)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a shared auth intent without its initiating browser cookie", async () => {
+    const { createGoogleAuthIntent } = await import("../lib/google.js");
+    const intent = createGoogleAuthIntent(1, "a".repeat(64));
+    for (const cookie of [undefined, `tachboard-oauth-${intent}=${"b".repeat(64)}`]) {
+      const req = request(app).get(`/widgets/gmail/auth?intent=${intent}`);
+      if (cookie) req.set("Cookie", cookie);
+      expect((await req).status).toBe(403);
+    }
+    expect(cloudPost).not.toHaveBeenCalled();
+    expect(upsertRun).not.toHaveBeenCalled();
+  });
   it("rejects requests without an intent token", async () => {
     const res = await request(app).get("/widgets/gmail/auth");
     expect(res.status).toBe(403);
@@ -2825,11 +2899,13 @@ describe("GET /widgets/gmail/auth", () => {
 
   it("accepts a freshly minted intent exactly once", async () => {
     const { createGoogleAuthIntent } = await import("../lib/google.js");
-    const intent = createGoogleAuthIntent(1);
-    // Env vars are unset in tests, so a valid intent proceeds past the guard
-    // and fails on the "not configured" check (400), NOT the 403 guard.
-    const first = await request(app).get(`/widgets/gmail/auth?intent=${intent}`);
-    expect(first.status).toBe(400);
+    const binding = "a".repeat(64);
+    const intent = createGoogleAuthIntent(1, binding);
+    // A valid browser-bound intent passes the guard, whether credentials
+    // come from the test environment (302) or are unconfigured (400).
+    const first = await request(app).get(`/widgets/gmail/auth?intent=${intent}`)
+      .set("Cookie", `tachboard-oauth-${intent}=${binding}`);
+    expect([400, 302]).toContain(first.status);
     // The intent is single-use: replaying it must be rejected.
     const second = await request(app).get(`/widgets/gmail/auth?intent=${intent}`);
     expect(second.status).toBe(403);
@@ -2837,6 +2913,22 @@ describe("GET /widgets/gmail/auth", () => {
 });
 
 describe("GET /widgets/gmail/callback", () => {
+  it("rejects a shared Google authorization URL without matching browser proof", async () => {
+    const { createGooglePendingAuth, consumeGooglePendingAuth } = await import("../lib/google.js");
+    const binding = "a".repeat(64);
+    const state = createGooglePendingAuth(1, "http://localhost/callback", "http://localhost/settings", binding);
+    for (const cookie of [undefined, `tachboard-oauth-${state}=${"b".repeat(64)}`]) {
+      const req = request(app).get("/widgets/gmail/callback").query({ state, code: "victim-code" });
+      if (cookie) req.set("Cookie", cookie);
+      const response = await req;
+      expect(response.headers.location).toContain("google=error");
+      expect(cloudPost).not.toHaveBeenCalled();
+      expect(upsertRun).not.toHaveBeenCalled();
+    }
+    expect(consumeGooglePendingAuth(state, binding)?.userId).toBe(1);
+    expect(consumeGooglePendingAuth(state, binding)).toBeNull();
+  });
+
   it("redirects to settings with an error when the state is unknown", async () => {
     // Without a pending state created by a legitimate /gmail/auth run, the
     // callback must not exchange the code or persist any tokens.
