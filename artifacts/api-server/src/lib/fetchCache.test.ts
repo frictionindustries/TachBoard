@@ -1,9 +1,48 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { cachedFetch, invalidateFetchCache, fetchCacheSize } from "./fetchCache.js";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { cachedFetch, invalidateFetchCache, fetchCacheSize, FETCH_CACHE_MAX_ENTRIES } from "./fetchCache.js";
 
 describe("cachedFetch", () => {
   beforeEach(() => {
     invalidateFetchCache();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("physically removes expired entries even when another key is requested", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1000);
+    await cachedFetch("weather:geo:old", () => Promise.resolve(undefined), 10);
+    clock.mockReturnValue(1010);
+    await cachedFetch("weather:revgeo:new", () => Promise.resolve("New"), 10);
+    expect(fetchCacheSize()).toBe(1);
+  });
+
+  it("bounds unique successful and empty results and evicts least-recently-used entries", async () => {
+    for (let i = 0; i < FETCH_CACHE_MAX_ENTRIES; i++) {
+      await cachedFetch(`weather:geo:${i}`, () => Promise.resolve(undefined));
+    }
+    const retained = vi.fn(() => Promise.resolve("refetched"));
+    await cachedFetch("weather:geo:0", retained); // touch the oldest entry
+    await cachedFetch("weather:revgeo:extra", () => Promise.resolve("Extra"));
+    expect(fetchCacheSize()).toBe(FETCH_CACHE_MAX_ENTRIES);
+    await cachedFetch("weather:geo:0", retained);
+    expect(retained).not.toHaveBeenCalled();
+    await cachedFetch("weather:geo:1", retained);
+    expect(retained).toHaveBeenCalledTimes(1);
+    expect(fetchCacheSize()).toBe(FETCH_CACHE_MAX_ENTRIES);
+  });
+
+  it("bounds pending fetches and old rejections cannot evict a replacement", async () => {
+    let rejectOld!: (error: Error) => void;
+    const old = cachedFetch("weather:geo:old", () => new Promise((_, reject) => { rejectOld = reject; }));
+    for (let i = 0; i < FETCH_CACHE_MAX_ENTRIES; i++) {
+      void cachedFetch(`weather:geo:pending-${i}`, () => new Promise(() => {}));
+    }
+    expect(fetchCacheSize()).toBe(FETCH_CACHE_MAX_ENTRIES);
+    await cachedFetch("weather:geo:old", () => Promise.resolve("replacement"));
+    rejectOld(new Error("old failure"));
+    await expect(old).rejects.toThrow("old failure");
+    const fetcher = vi.fn(() => Promise.resolve("wrong"));
+    expect(await cachedFetch("weather:geo:old", fetcher)).toBe("replacement");
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it("returns the cached result within the TTL without re-running the fetcher", async () => {

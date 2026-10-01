@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import express, { type Express } from "express";
 import request from "supertest";
+import axios, { type AxiosRequestConfig } from "axios";
+import { createServer } from "node:http";
+import { gzipSync } from "node:zlib";
+import Parser from "rss-parser";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 // Replace the auth middleware with a pass-through so we can exercise the routes
@@ -2164,7 +2168,42 @@ describe("GET /widgets/news", () => {
     // Feed must be fetched as text so rss-parser receives raw XML.
     const [, opts] = httpGet.mock.calls[0]!;
     expect(opts.responseType).toBe("text");
+    expect(opts.maxContentLength).toBe(2 * 1024 * 1024);
+    expect(opts.ssrfPublicOnly).toBe(true);
   });
+
+  it.each(["content-length", "chunked", "gzip"])(
+    "aborts an oversized %s feed before parsing and returns 502",
+    async (encoding) => {
+      const oversized = Buffer.alloc(2 * 1024 * 1024 + 1, "x");
+      const body = encoding === "gzip" ? gzipSync(oversized) : oversized;
+      const upstream = createServer((_req, res) => {
+        if (encoding === "gzip") res.setHeader("Content-Encoding", "gzip");
+        if (encoding !== "chunked") res.setHeader("Content-Length", body.length);
+        if (encoding === "chunked") {
+          res.write(body.subarray(0, 1024));
+          res.end(body.subarray(1024));
+        } else res.end(body);
+      });
+      await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+      const address = upstream.address() as { port: number };
+      // Use real Axios buffering/decompression against a local test fixture,
+      // without altering or bypassing the production SSRF interceptor.
+      httpGet.mockImplementation((_url: string, opts: AxiosRequestConfig) =>
+        axios.get(`http://127.0.0.1:${address.port}/feed`, { ...opts, proxy: false }));
+      const parse = vi.spyOn(Parser.prototype, "parseString");
+      try {
+        const res = await request(app).get("/widgets/news?url=https://example.com/large");
+        expect(res.status).toBe(502);
+        expect(res.body.error).toMatch(/feed/i);
+        expect(parse).not.toHaveBeenCalled();
+      } finally {
+        parse.mockRestore();
+        await new Promise<void>((resolve, reject) =>
+          upstream.close((err) => err ? reject(err) : resolve()));
+      }
+    },
+  );
 
   it("caps the number of items at the requested limit", async () => {
     httpGet.mockResolvedValue({ data: RSS_SAMPLE });
@@ -3134,6 +3173,21 @@ describe("GET /widgets/gmail/callback", () => {
 
 // ── Weather (server-side cache) ───────────────────────────────────────────────
 describe("GET /widgets/weather", () => {
+  it("rejects oversized city keys before fetching or caching", async () => {
+    const res = await request(app).get("/widgets/weather").query({ city: "x".repeat(201) });
+    expect(res.status).toBe(400);
+    expect(cloudGet).not.toHaveBeenCalled();
+  });
+
+  it.each([{ lat: 91, lon: 0 }, { lat: 0, lon: -181 }])(
+    "rejects out-of-range coordinates %j before fetching or caching",
+    async (coords) => {
+      const res = await request(app).get("/widgets/weather").query(coords);
+      expect(res.status).toBe(400);
+      expect(cloudGet).not.toHaveBeenCalled();
+    },
+  );
+
   it("caches forecast + reverse-geocode responses per rounded coords and units", async () => {
     invalidateFetchCache("weather:");
     cloudGet.mockImplementation(async (url: string) => {

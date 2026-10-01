@@ -11,6 +11,7 @@
 // next tile refresh retries the upstream instead of replaying the error.
 
 const DEFAULT_TTL_MS = 90_000;
+export const FETCH_CACHE_MAX_ENTRIES = 512;
 
 interface CacheEntry {
   expiresAt: number;
@@ -19,6 +20,16 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
+function pruneExpired(now = Date.now()): void {
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(key);
+  }
+}
+
+// Also release expired results when the instance is idle. Do not keep Node
+// alive just for cache maintenance.
+setInterval(pruneExpired, 60_000).unref();
+
 export function cachedFetch<T>(
   key: string,
   fn: () => Promise<T>,
@@ -26,13 +37,23 @@ export function cachedFetch<T>(
   opts?: { fresh?: boolean },
 ): Promise<T> {
   const now = Date.now();
+  pruneExpired(now);
   const hit = cache.get(key);
   // `fresh` skips any cached entry and forces a new upstream fetch. The new
   // promise is still stored under the key, so concurrent callers arriving
   // right after the fresh request dedupe onto it as usual.
-  if (hit && hit.expiresAt > now && !opts?.fresh) return hit.promise as Promise<T>;
+  if (hit && !opts?.fresh) {
+    // Map insertion order tracks least-recently-used entries.
+    cache.delete(key);
+    cache.set(key, hit);
+    return hit.promise as Promise<T>;
+  }
 
   const promise = fn();
+  cache.delete(key);
+  while (cache.size >= FETCH_CACHE_MAX_ENTRIES) {
+    cache.delete(cache.keys().next().value!);
+  }
   cache.set(key, { expiresAt: now + ttlMs, promise });
   promise.catch(() => {
     // Only evict if this exact promise is still the cached one (a newer
@@ -55,12 +76,7 @@ export function invalidateFetchCache(prefix?: string): void {
   }
 }
 
-// Test helper — number of live (non-expired) entries.
+// Test helper — actual retained entry count, including entries awaiting pruning.
 export function fetchCacheSize(): number {
-  const now = Date.now();
-  let n = 0;
-  for (const entry of cache.values()) {
-    if (entry.expiresAt > now) n += 1;
-  }
-  return n;
+  return cache.size;
 }

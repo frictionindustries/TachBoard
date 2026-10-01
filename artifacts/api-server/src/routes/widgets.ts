@@ -5738,6 +5738,7 @@ router.get("/photos/immich/asset/:id", requireAuth, async (req: AuthRequest, res
 
 const NEWS_DEFAULT_LIMIT = 8;
 const NEWS_MAX_LIMIT = 30;
+const NEWS_MAX_FEED_BYTES = 2 * 1024 * 1024;
 
 // Single shared parser. We fetch the feed ourselves via the shared httpClient so
 // the request honors our timeout and self-signed-TLS handling, then hand the raw
@@ -5807,6 +5808,9 @@ router.get("/news", requireAuth, async (req, res) => {
   try {
     const r = await httpClient.get(feedUrl, {
       responseType: "text",
+      // Axios counts bytes as they arrive (after decompression) and aborts
+      // before buffering/parsing an oversized or endless feed.
+      maxContentLength: NEWS_MAX_FEED_BYTES,
       // Some feeds gate on a browser-y UA and reject the default axios one.
       headers: { Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
       // This proxies arbitrary user-supplied URLs to fetch public RSS/Atom
@@ -6168,6 +6172,17 @@ router.get("/weather", requireAuth, async (req, res) => {
   const city = typeof req.query["city"] === "string" ? req.query["city"].trim() : "";
   const units = req.query["units"] === "f" ? "f" : "c";
   const hasCoords = Number.isFinite(latRaw) && Number.isFinite(lonRaw);
+
+  // Bound user-controlled cache keys and reject meaningless coordinates
+  // before making any upstream request.
+  if (city.length > 200) {
+    res.status(400).json({ error: "City name must be 200 characters or fewer" });
+    return;
+  }
+  if (hasCoords && (Math.abs(latRaw) > 90 || Math.abs(lonRaw) > 180)) {
+    res.status(400).json({ error: "Coordinates must be within latitude ±90 and longitude ±180" });
+    return;
+  }
 
   if (!hasCoords && !city) {
     res.status(400).json({ error: "Provide either lat/lon coordinates or a city name" });
