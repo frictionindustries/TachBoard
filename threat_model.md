@@ -63,3 +63,10 @@ Because the app supports multiple local accounts but also holds shared integrati
 - **OAuth state binding**: Google/Spotify state is single-use and account-bound but NOT browser-bound; account-linking CSRF is possible. Future OAuth work should bind state to the initiating browser (e.g. a cookie) and re-verify on callback.
 - **IMAP/CalDAV/GameDig outbound paths bypass the `httpClient` SSRF guard** (raw imapflow/tsdav/gamedig sockets). They permit internal-network reachability by design of those protocols; keep them in mind for SSRF scope.
 - Access control for tiles/pages/layout/device-modes/uploads/profile is correctly user-scoped (every lookup uses `findById(id, userId)` / user-scoped statements). SQLi is not present (all statements parameterized). Uploads are byte-sniffed + SVG-sanitized and served with nosniff+strict CSP.
+
+## Scan Notes — Task 522 (full scan, baseline==HEAD bf0e7d6)
+
+- No incremental diff (baseline SHA equals HEAD). Full re-review performed. Prior-hardened seams verified clean: JWT secret persistence, bcrypt cost 12, OAuth browser-bound state, user-scoped tiles/pages/uploads/profile, parameterized SQL, upstream session caches isolated by user+creds, upload byte-sniff + SVG sanitize + strict CSP.
+- NEW: TrueNAS diagnostics (`widgets.ts` `/truenas/diagnostics`) concatenates the saved service URL with fixed suffixes; a `base?`-style URL turns it into an arbitrary-path internal HTTP reader returning raw bodies. `httpClient` permits RFC1918/ULA by default (`ssrfPublicOnly` off) — intentional for the owner, but a lower-priv registered user gains an internal-network read primitive. Re-check any diagnostics/proxy route that returns raw upstream bodies and does not opt into `ssrfPublicOnly`.
+- NEW: DoS — `uniquePageName` in `pages.ts` is O(N²) on duplicate names; `/api/pages/import` has no page-count cap (5mb body). Also `/api/auth/register` is unauthenticated with no rate limit and no username length cap.
+- Confirmed design-accepted (not re-reported): private-range reachability by design; `saved.url || env` fallback did NOT leak shared env creds (atomic connection selection).
