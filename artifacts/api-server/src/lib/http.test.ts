@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+describe("cloudHttpClient TLS verification", () => {
+  it("uses Node's verifying default agent, not the homelab self-signed agent", async () => {
+    const { cloudHttpClient, httpClient } = await import("./http.js");
+    expect(cloudHttpClient.defaults.httpsAgent).toBeUndefined();
+    expect(httpClient.defaults.httpsAgent.options.rejectUnauthorized).toBe(false);
+  });
+});
+
 describe("isSsrfBlockedIp", () => {
   it("always blocks loopback, link-local, cloud-metadata, and reserved IPv4 ranges", async () => {
     const { isSsrfBlockedIp } = await import("./http.js");

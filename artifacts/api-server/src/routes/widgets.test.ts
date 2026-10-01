@@ -140,6 +140,76 @@ beforeEach(() => {
   findByService.mockReturnValue(undefined);
 });
 
+describe("Finnhub TLS-verified requests", () => {
+  beforeEach(() => {
+    findByService.mockImplementation((_userId, service) =>
+      service === "stocks" ? connRow({ service, api_key: "test-finnhub-key" }) : undefined,
+    );
+  });
+
+  it("fetches quotes and company profiles only through the cloud client", async () => {
+    cloudGet.mockResolvedValueOnce({ data: { c: 123, d: 2, dp: 1.65 } });
+    cloudGet.mockResolvedValueOnce({ data: { name: "Apple Inc" } });
+
+    const res = await request(app).get("/widgets/stocks?symbols=AAPL");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      quotes: [{ symbol: "AAPL", name: "Apple Inc", price: 123, change: 2, changePercent: 1.65 }],
+      sample: false,
+    });
+    for (const path of ["quote", "stock/profile2"]) {
+      expect(cloudGet).toHaveBeenCalledWith(`https://finnhub.io/api/v1/${path}`, {
+        params: { symbol: "AAPL", token: "test-finnhub-key" },
+      });
+    }
+    expect(httpGet).not.toHaveBeenCalled();
+  });
+
+  it("fetches candles only through the cloud client", async () => {
+    cloudGet.mockResolvedValue({ data: { s: "ok", c: [120, 121, 123] } });
+    const res = await request(app).get("/widgets/stocks/candles?symbols=AAPL");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ series: [{ symbol: "AAPL", closes: [120, 121, 123] }], sample: false });
+    expect(cloudGet).toHaveBeenCalledWith("https://finnhub.io/api/v1/stock/candle", {
+      params: { symbol: "AAPL", token: "test-finnhub-key", resolution: "D", from: expect.any(Number), to: expect.any(Number) },
+    });
+    expect(httpGet).not.toHaveBeenCalled();
+  });
+
+  it("searches only through the cloud client", async () => {
+    cloudGet.mockResolvedValue({ data: { result: [{ symbol: "AAPL", description: "Apple Inc" }] } });
+    const res = await request(app).get("/widgets/stocks/search?q=Apple");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ results: [{ symbol: "AAPL", description: "Apple Inc" }], sample: false });
+    expect(cloudGet).toHaveBeenCalledWith("https://finnhub.io/api/v1/search", {
+      params: { q: "Apple", token: "test-finnhub-key" },
+    });
+    expect(httpGet).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "/widgets/stocks?symbols=AAPL",
+    "/widgets/stocks/candles?symbols=AAPL",
+    "/widgets/stocks/search?q=Apple",
+  ])("does not retry certificate failures through the insecure client: %s", async (path) => {
+    cloudGet.mockRejectedValue(new Error("self-signed certificate"));
+    const res = await request(app).get(path);
+    expect(res.status).toBe(502);
+    expect(cloudGet).toHaveBeenCalledTimes(1);
+    expect(httpGet).not.toHaveBeenCalled();
+  });
+
+  it("keeps profile failures optional without retrying insecurely", async () => {
+    cloudGet.mockResolvedValueOnce({ data: { c: 123 } });
+    cloudGet.mockRejectedValueOnce(new Error("self-signed certificate"));
+    const res = await request(app).get("/widgets/stocks?symbols=AAPL");
+    expect(res.status).toBe(200);
+    expect(res.body.quotes[0].name).toBeNull();
+    expect(cloudGet).toHaveBeenCalledTimes(2);
+    expect(httpGet).not.toHaveBeenCalled();
+  });
+});
+
 // ── TrueNAS ─────────────────────────────────────────────────────────────────
 describe("GET /widgets/truenas", () => {
   it("returns sample data when unconfigured", async () => {

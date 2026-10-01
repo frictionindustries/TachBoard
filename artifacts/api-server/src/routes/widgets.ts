@@ -5921,7 +5921,7 @@ router.get("/stocks", requireAuth, async (req: AuthRequest, res) => {
     // lookups (for the company name) are best-effort and must not fail the row.
     const quotes = await Promise.all(
       symbols.map(async (symbol): Promise<StockQuoteOut | null> => {
-        const quoteRes = await httpClient.get(`${FINNHUB_BASE}/quote`, {
+        const quoteRes = await cloudHttpClient.get(`${FINNHUB_BASE}/quote`, {
           params: { symbol, token: apiKey },
         });
         const q = (quoteRes.data ?? {}) as {
@@ -5935,7 +5935,7 @@ router.get("/stocks", requireAuth, async (req: AuthRequest, res) => {
 
         let name: string | null = null;
         try {
-          const profRes = await httpClient.get(`${FINNHUB_BASE}/stock/profile2`, {
+          const profRes = await cloudHttpClient.get(`${FINNHUB_BASE}/stock/profile2`, {
             params: { symbol, token: apiKey },
           });
           const prof = (profRes.data ?? {}) as { name?: string };
@@ -6019,7 +6019,7 @@ router.get("/stocks/candles", requireAuth, async (req: AuthRequest, res) => {
     const from = to - 60 * 60 * 24 * 45;
     const series = await Promise.all(
       symbols.map(async (symbol): Promise<StockCandleSeriesOut | null> => {
-        const candleRes = await httpClient.get(`${FINNHUB_BASE}/stock/candle`, {
+        const candleRes = await cloudHttpClient.get(`${FINNHUB_BASE}/stock/candle`, {
           params: { symbol, resolution: "D", from, to, token: apiKey },
         });
         const data = (candleRes.data ?? {}) as { c?: number[]; s?: string };
@@ -6063,7 +6063,7 @@ router.get("/stocks/search", requireAuth, async (req: AuthRequest, res) => {
   }
 
   try {
-    const searchRes = await httpClient.get(`${FINNHUB_BASE}/search`, {
+    const searchRes = await cloudHttpClient.get(`${FINNHUB_BASE}/search`, {
       params: { q, token: apiKey },
     });
     const data = (searchRes.data ?? {}) as {
