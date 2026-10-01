@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import { createHash } from "node:crypto";
 import { newBrowserBinding, setBrowserBinding, readBrowserBinding, clearBrowserBinding } from "../lib/oauthBrowser.js";
 import Parser from "rss-parser";
 import { requireAuth, verifyToken, type AuthRequest } from "../lib/auth.js";
@@ -85,7 +86,8 @@ function getSavedConnection(userId: number, service: string): SavedConnection {
   let token: string | undefined;
   if (row.extra) {
     try {
-      token = (JSON.parse(row.extra) as { token?: string }).token ?? undefined;
+      const extraToken = (JSON.parse(row.extra) as { token?: unknown }).token;
+      token = typeof extraToken === "string" ? extraToken.trim() || undefined : undefined;
     } catch {
       token = undefined;
     }
@@ -96,8 +98,54 @@ function getSavedConnection(userId: number, service: string): SavedConnection {
     apiKey: row.api_key?.trim() || undefined,
     username: row.username?.trim() || undefined,
     password: row.password ?? undefined,
-    token,
+    token: token?.trim() || undefined,
   };
+}
+
+// A saved connection is atomic: once a row contains any meaningful setting,
+// callers must use only that row (even if incomplete) rather than borrowing
+// missing fields from the process-wide legacy configuration.
+function hasSavedConnection(saved: SavedConnection): boolean {
+  return Boolean(
+    saved.url ||
+    saved.apiKey ||
+    saved.username ||
+    (saved.password != null && saved.password.length > 0) ||
+    saved.token,
+  );
+}
+
+function savedOrEnvironmentConnection(
+  userId: number,
+  service: string,
+  environment: SavedConnection,
+): SavedConnection {
+  const saved = getSavedConnection(userId, service);
+  return hasSavedConnection(saved) ? saved : environment;
+}
+
+function resolveMediaServerConnection(
+  userId: number,
+  server: "plex" | "jellyfin",
+): { baseUrl?: string; apiKey?: string } {
+  const saved = getSavedConnection(userId, server);
+  if (hasSavedConnection(saved)) {
+    return {
+      baseUrl: saved.url,
+      apiKey: server === "plex" ? saved.token || saved.apiKey : saved.apiKey,
+    };
+  }
+
+  const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
+  if (envType !== server) return {};
+  return {
+    baseUrl: process.env["MEDIA_SERVER_URL"],
+    apiKey: process.env["MEDIA_SERVER_API_KEY"],
+  };
+}
+
+function credentialFingerprint(credential: string): string {
+  return createHash("sha256").update(credential).digest("hex");
 }
 
 // Build an app.plex.tv deep link for a single item so clicking its cover opens
@@ -740,9 +788,11 @@ function diskNamesFrom(diskData: unknown): string[] {
 }
 
 router.get("/truenas", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "truenas");
-  const baseUrl = saved.url || process.env["TRUENAS_URL"];
-  const apiKey = saved.apiKey || process.env["TRUENAS_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "truenas", {
+    url: process.env["TRUENAS_URL"],
+    apiKey: process.env["TRUENAS_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     // Sample data only when the service is genuinely unconfigured.
@@ -1118,9 +1168,11 @@ function capDiagnosticBody(body: unknown): unknown {
 }
 
 router.get("/truenas/diagnostics", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "truenas");
-  const baseUrl = saved.url || process.env["TRUENAS_URL"];
-  const apiKey = saved.apiKey || process.env["TRUENAS_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "truenas", {
+    url: process.env["TRUENAS_URL"],
+    apiKey: process.env["TRUENAS_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     // No sample data here — a diagnostic on an unconfigured service is
@@ -1350,42 +1402,8 @@ router.get("/media", requireAuth, async (req: AuthRequest, res) => {
   // connection; anything else (the default) reads the saved Plex connection.
   const server = req.query["server"] === "jellyfin" ? "jellyfin" : "plex";
 
-  let serverType: string;
-  let baseUrl: string | undefined;
-  let apiKey: string | undefined;
-
-  if (server === "jellyfin") {
-    // Jellyfin uses a base URL + API key, both stored on the jellyfin
-    // connection. Fall back to the env-configured media server only when no
-    // Jellyfin connection is saved.
-    const saved = getSavedConnection(req.user!.userId, "jellyfin");
-    serverType = "jellyfin";
-    baseUrl = saved.url;
-    apiKey = saved.apiKey;
-    if (!baseUrl || !apiKey) {
-      const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
-      if (envType === "jellyfin") {
-        baseUrl = process.env["MEDIA_SERVER_URL"];
-        apiKey = process.env["MEDIA_SERVER_API_KEY"];
-      }
-    }
-  } else {
-    // Plex uses a base URL + token (the token may be stored under `token` or
-    // `apiKey`). Fall back to a Plex-typed env media server when unsaved.
-    const saved = getSavedConnection(req.user!.userId, "plex");
-    const savedToken = saved.token || saved.apiKey;
-    serverType = "plex";
-    if (saved.url && savedToken) {
-      baseUrl = saved.url;
-      apiKey = savedToken;
-    } else {
-      const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
-      if (envType === "plex") {
-        baseUrl = process.env["MEDIA_SERVER_URL"];
-        apiKey = process.env["MEDIA_SERVER_API_KEY"];
-      }
-    }
-  }
+  const serverType = server;
+  const { baseUrl, apiKey } = resolveMediaServerConnection(req.user!.userId, server);
 
   if (!baseUrl || !apiKey) {
     // Sample items carry a demo deep link so the poster/title click-through can
@@ -1512,42 +1530,8 @@ router.get("/media/continue", requireAuth, async (req: AuthRequest, res) => {
   // connection (On Deck).
   const server = req.query["server"] === "jellyfin" ? "jellyfin" : "plex";
 
-  let serverType: string;
-  let baseUrl: string | undefined;
-  let apiKey: string | undefined;
-
-  if (server === "jellyfin") {
-    // Jellyfin uses a base URL + API key, both stored on the jellyfin
-    // connection. Fall back to the env-configured media server only when no
-    // Jellyfin connection is saved.
-    const saved = getSavedConnection(req.user!.userId, "jellyfin");
-    serverType = "jellyfin";
-    baseUrl = saved.url;
-    apiKey = saved.apiKey;
-    if (!baseUrl || !apiKey) {
-      const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
-      if (envType === "jellyfin") {
-        baseUrl = process.env["MEDIA_SERVER_URL"];
-        apiKey = process.env["MEDIA_SERVER_API_KEY"];
-      }
-    }
-  } else {
-    // Plex uses a base URL + token (stored under `token` or `apiKey`). Fall back
-    // to a Plex-typed env media server when unsaved.
-    const saved = getSavedConnection(req.user!.userId, "plex");
-    const savedToken = saved.token || saved.apiKey;
-    serverType = "plex";
-    if (saved.url && savedToken) {
-      baseUrl = saved.url;
-      apiKey = savedToken;
-    } else {
-      const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
-      if (envType === "plex") {
-        baseUrl = process.env["MEDIA_SERVER_URL"];
-        apiKey = process.env["MEDIA_SERVER_API_KEY"];
-      }
-    }
-  }
+  const serverType = server;
+  const { baseUrl, apiKey } = resolveMediaServerConnection(req.user!.userId, server);
 
   // Unconfigured → return built-in sample data so the tile has something to
   // show, consistent with the /media convention.
@@ -1843,16 +1827,7 @@ function resolveJellyfinAudioConnection(userId: number): {
   baseUrl: string | undefined;
   apiKey: string | undefined;
 } {
-  const saved = getSavedConnection(userId, "jellyfin");
-  let baseUrl = saved.url;
-  let apiKey = saved.apiKey;
-  if (!baseUrl || !apiKey) {
-    const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
-    if (envType === "jellyfin") {
-      baseUrl = process.env["MEDIA_SERVER_URL"];
-      apiKey = process.env["MEDIA_SERVER_API_KEY"];
-    }
-  }
+  const { baseUrl, apiKey } = resolveMediaServerConnection(userId, "jellyfin");
   return { baseUrl, apiKey };
 }
 
@@ -2972,20 +2947,7 @@ router.get("/audioplayer", requireAuth, async (req: AuthRequest, res) => {
 
   // Plex stores the token under `token` or `apiKey`. Fall back to a Plex-typed
   // env media server when no Plex connection is saved (mirrors /media).
-  const saved = getSavedConnection(req.user!.userId, "plex");
-  const savedToken = saved.token || saved.apiKey;
-  let baseUrl: string | undefined;
-  let token: string | undefined;
-  if (saved.url && savedToken) {
-    baseUrl = saved.url;
-    token = savedToken;
-  } else {
-    const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
-    if (envType === "plex") {
-      baseUrl = process.env["MEDIA_SERVER_URL"];
-      token = process.env["MEDIA_SERVER_API_KEY"];
-    }
-  }
+  const { baseUrl, apiKey: token } = resolveMediaServerConnection(req.user!.userId, "plex");
 
   // Unconfigured → built-in demo content (sample:true). streamUrl stays null so
   // the tile labels it not-live and disables in-browser streaming.
@@ -3105,15 +3067,8 @@ interface PlexDirRow {
 // /audioplayer route: prefer the saved Plex connection, fall back to a
 // Plex-typed env media server. Returns null when neither is configured.
 function resolvePlexAudioConnection(userId: number): { baseUrl: string; token: string } | null {
-  const saved = getSavedConnection(userId, "plex");
-  const savedToken = saved.token || saved.apiKey;
-  if (saved.url && savedToken) return { baseUrl: saved.url, token: savedToken };
-  const envType = process.env["MEDIA_SERVER_TYPE"] || "jellyfin";
-  if (envType === "plex") {
-    const baseUrl = process.env["MEDIA_SERVER_URL"];
-    const token = process.env["MEDIA_SERVER_API_KEY"];
-    if (baseUrl && token) return { baseUrl, token };
-  }
+  const { baseUrl, apiKey } = resolveMediaServerConnection(userId, "plex");
+  if (baseUrl && apiKey) return { baseUrl, token: apiKey };
   return null;
 }
 
@@ -3823,9 +3778,11 @@ router.post("/spotify/command", requireAuth, async (req: AuthRequest, res) => {
 // Sonarr Widget
 // ────────────────────────────────────────────────
 router.get("/sonarr", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "sonarr");
-  const baseUrl = saved.url || process.env["SONARR_URL"];
-  const apiKey = saved.apiKey || process.env["SONARR_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "sonarr", {
+    url: process.env["SONARR_URL"],
+    apiKey: process.env["SONARR_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     const now = new Date();
@@ -3895,9 +3852,11 @@ router.get("/sonarr", requireAuth, async (req: AuthRequest, res) => {
 // Radarr Widget
 // ────────────────────────────────────────────────
 router.get("/radarr", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "radarr");
-  const baseUrl = saved.url || process.env["RADARR_URL"];
-  const apiKey = saved.apiKey || process.env["RADARR_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "radarr", {
+    url: process.env["RADARR_URL"],
+    apiKey: process.env["RADARR_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     const now = new Date();
@@ -3967,9 +3926,11 @@ router.get("/radarr", requireAuth, async (req: AuthRequest, res) => {
 // Lidarr Widget
 // ────────────────────────────────────────────────
 router.get("/lidarr", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "lidarr");
-  const baseUrl = saved.url || process.env["LIDARR_URL"];
-  const apiKey = saved.apiKey || process.env["LIDARR_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "lidarr", {
+    url: process.env["LIDARR_URL"],
+    apiKey: process.env["LIDARR_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     const now = new Date();
@@ -4050,18 +4011,33 @@ function extractSessionCookie(setCookie: string[] | undefined): string | undefin
 }
 
 // qBittorrent bans clients that log in too frequently, and the tile polls every
-// ~10s. Cache the SID per connection (keyed by baseUrl + username) and reuse it
-// across polls, re-authenticating only when the session has expired (403) or no
-// session is cached yet.
-const qbSidCache = new Map<string, string>();
+// ~10s. Reuse SIDs for a bounded local period, and isolate entries by user,
+// normalized endpoint, identity, and a one-way credential fingerprint.
+interface QbSid {
+  sid: string;
+  expiresAt: number;
+}
 
-function qbCacheKey(baseUrl: string, username: string): string {
-  return `${baseUrl}\u0000${username}`;
+const QB_SID_TTL_MS = 24 * 60 * 60_000;
+const qbSidCache = new Map<string, QbSid>();
+
+function qbCacheKey(userId: number, baseUrl: string, username: string, password: string): string {
+  return [
+    userId,
+    normalizeBaseUrl(baseUrl),
+    username,
+    credentialFingerprint(password),
+  ].join("\u0000");
 }
 
 // Log in to qBittorrent, cache the resulting SID, and return it. Throws a tagged
 // error when authentication is rejected or no session cookie is returned.
-async function qbLogin(baseUrl: string, username: string, password: string): Promise<string> {
+async function qbLogin(
+  baseUrl: string,
+  username: string,
+  password: string,
+  key: string,
+): Promise<string> {
   const form = new URLSearchParams({ username, password });
   const loginRes = await httpClient.post(`${baseUrl}/api/v2/auth/login`, form.toString(), {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -4076,7 +4052,7 @@ async function qbLogin(baseUrl: string, username: string, password: string): Pro
     throw new Error("qb-no-session");
   }
 
-  qbSidCache.set(qbCacheKey(baseUrl, username), sid);
+  qbSidCache.set(key, { sid, expiresAt: Date.now() + QB_SID_TTL_MS });
   return sid;
 }
 
@@ -4090,10 +4066,14 @@ function isAuthError(err: unknown): boolean {
 }
 
 router.get("/qbittorrent", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "qbittorrent");
-  const baseUrl = normalizeBaseUrl(saved.url || process.env["QBITTORRENT_URL"]);
-  const username = saved.username || process.env["QBITTORRENT_USERNAME"];
-  const password = saved.password ?? process.env["QBITTORRENT_PASSWORD"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "qbittorrent", {
+    url: process.env["QBITTORRENT_URL"],
+    username: process.env["QBITTORRENT_USERNAME"],
+    password: process.env["QBITTORRENT_PASSWORD"],
+  });
+  const baseUrl = normalizeBaseUrl(connection.url);
+  const username = connection.username?.trim();
+  const password = connection.password;
 
   if (!baseUrl || !username || password == null) {
     res.json({
@@ -4125,13 +4105,18 @@ router.get("/qbittorrent", requireAuth, async (req: AuthRequest, res) => {
   const fetchCategories = (sid: string) =>
     httpClient.get(`${baseUrl}/api/v2/torrents/categories`, { headers: { Cookie: sid } });
 
-  const key = qbCacheKey(baseUrl, username);
+  const key = qbCacheKey(req.user!.userId, baseUrl, username, password);
 
   try {
     // Reuse the cached SID when present; only log in when there is none.
-    let sid = qbSidCache.get(key);
+    let cached = qbSidCache.get(key);
+    if (cached && cached.expiresAt <= Date.now()) {
+      qbSidCache.delete(key);
+      cached = undefined;
+    }
+    let sid = cached?.sid;
     if (!sid) {
-      sid = await qbLogin(baseUrl, username, password);
+      sid = await qbLogin(baseUrl, username, password, key);
     }
 
     let torrentsRes;
@@ -4143,7 +4128,7 @@ router.get("/qbittorrent", requireAuth, async (req: AuthRequest, res) => {
       // more, and retry the data fetch a single time.
       if (isAuthError(err)) {
         qbSidCache.delete(key);
-        sid = await qbLogin(baseUrl, username, password);
+        sid = await qbLogin(baseUrl, username, password, key);
         [torrentsRes, transferRes] = await fetchData(sid);
       } else {
         throw err;
@@ -4212,9 +4197,12 @@ router.get("/qbittorrent", requireAuth, async (req: AuthRequest, res) => {
 // `admin/api.php` endpoint, so one saved connection works for both. See
 // lib/pihole.ts for the detection + mapping details.
 router.get("/pihole", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "pihole");
-  const baseUrl = normalizeBaseUrl(saved.url || process.env["PIHOLE_URL"]);
-  const apiKey = saved.apiKey || process.env["PIHOLE_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "pihole", {
+    url: process.env["PIHOLE_URL"],
+    apiKey: process.env["PIHOLE_API_KEY"],
+  });
+  const baseUrl = normalizeBaseUrl(connection.url);
+  const apiKey = connection.apiKey;
 
   // Unconfigured (no base URL): report not-configured so the tile shows its
   // placeholder rather than stale/sample numbers.
@@ -4248,13 +4236,28 @@ interface NpmToken {
 
 const npmTokenCache = new Map<string, NpmToken>();
 
-function npmCacheKey(baseUrl: string, email: string): string {
-  return `${baseUrl}\u0000${email}`;
+function npmCacheKey(
+  userId: number,
+  baseUrl: string,
+  email: string,
+  password: string,
+): string {
+  return [
+    userId,
+    normalizeBaseUrl(baseUrl),
+    email,
+    credentialFingerprint(password),
+  ].join("\u0000");
 }
 
 // Authenticate against NPM, cache the resulting token with its expiry, and
 // return it. Throws a tagged error when credentials are rejected.
-async function npmLogin(baseUrl: string, email: string, password: string): Promise<string> {
+async function npmLogin(
+  baseUrl: string,
+  email: string,
+  password: string,
+  key: string,
+): Promise<string> {
   const r = await httpClient.post(
     `${baseUrl}/api/tokens`,
     { identity: email, secret: password },
@@ -4269,18 +4272,23 @@ async function npmLogin(baseUrl: string, email: string, password: string): Promi
   // refresh 60s early so a request never rides an about-to-expire token.
   const parsed = body.expires ? new Date(body.expires).getTime() : NaN;
   const expiresAt = (Number.isNaN(parsed) ? Date.now() + 3600_000 : parsed) - 60_000;
-  npmTokenCache.set(npmCacheKey(baseUrl, email), { token: body.token, expiresAt });
+  npmTokenCache.set(key, { token: body.token, expiresAt });
   return body.token;
 }
 
 // Return a valid cached token when one is present and unexpired; otherwise log
 // in fresh.
-async function npmGetToken(baseUrl: string, email: string, password: string): Promise<string> {
-  const cached = npmTokenCache.get(npmCacheKey(baseUrl, email));
+async function npmGetToken(
+  baseUrl: string,
+  email: string,
+  password: string,
+  key: string,
+): Promise<string> {
+  const cached = npmTokenCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.token;
   }
-  return npmLogin(baseUrl, email, password);
+  return npmLogin(baseUrl, email, password, key);
 }
 
 function isUnauthorized(err: unknown): boolean {
@@ -4289,11 +4297,15 @@ function isUnauthorized(err: unknown): boolean {
 }
 
 router.get("/nginx-proxy-manager", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "nginx-proxy-manager");
-  const baseUrl = normalizeBaseUrl(saved.url || process.env["NPM_URL"]);
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "nginx-proxy-manager", {
+    url: process.env["NPM_URL"],
+    username: process.env["NPM_EMAIL"],
+    password: process.env["NPM_PASSWORD"],
+  });
+  const baseUrl = normalizeBaseUrl(connection.url);
   // The NPM connection stores the login email in the `username` field.
-  const email = saved.username || process.env["NPM_EMAIL"];
-  const password = saved.password ?? process.env["NPM_PASSWORD"];
+  const email = connection.username?.trim();
+  const password = connection.password;
 
   if (!baseUrl || !email || password == null) {
     // Realistic sample data so the tile/layout can be previewed unconfigured.
@@ -4327,10 +4339,10 @@ router.get("/nginx-proxy-manager", requireAuth, async (req: AuthRequest, res) =>
       }),
     ]);
 
-  const key = npmCacheKey(baseUrl, email);
+  const key = npmCacheKey(req.user!.userId, baseUrl, email, password);
 
   try {
-    let token = await npmGetToken(baseUrl, email, password);
+    let token = await npmGetToken(baseUrl, email, password, key);
 
     let proxyRes;
     let deadRes;
@@ -4341,7 +4353,7 @@ router.get("/nginx-proxy-manager", requireAuth, async (req: AuthRequest, res) =>
       // more, and retry the data fetch a single time.
       if (isUnauthorized(err)) {
         npmTokenCache.delete(key);
-        token = await npmLogin(baseUrl, email, password);
+        token = await npmLogin(baseUrl, email, password, key);
         [proxyRes, deadRes] = await fetchData(token);
       } else {
         throw err;
@@ -4420,9 +4432,11 @@ router.get("/nginx-proxy-manager", requireAuth, async (req: AuthRequest, res) =>
 // health issue whose message names the affected indexers, so an enabled indexer
 // counts as failing when its name appears in any health message.
 router.get("/prowlarr", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "prowlarr");
-  const baseUrl = saved.url || process.env["PROWLARR_URL"];
-  const apiKey = saved.apiKey || process.env["PROWLARR_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "prowlarr", {
+    url: process.env["PROWLARR_URL"],
+    apiKey: process.env["PROWLARR_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     // Sample data only when the service is genuinely unconfigured.
@@ -4604,9 +4618,11 @@ async function runPterodactylPlayerQuery(
 }
 
 router.get("/pterodactyl", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "pterodactyl");
-  const baseUrl = saved.url || process.env["PTERODACTYL_URL"];
-  const apiKey = saved.apiKey || process.env["PTERODACTYL_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "pterodactyl", {
+    url: process.env["PTERODACTYL_URL"],
+    apiKey: process.env["PTERODACTYL_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     // Sample data only when the service is genuinely unconfigured.
@@ -4731,9 +4747,11 @@ router.post("/pterodactyl/power", requireAuth, async (req: AuthRequest, res) => 
     return;
   }
 
-  const saved = getSavedConnection(req.user!.userId, "pterodactyl");
-  const baseUrl = saved.url || process.env["PTERODACTYL_URL"];
-  const apiKey = saved.apiKey || process.env["PTERODACTYL_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "pterodactyl", {
+    url: process.env["PTERODACTYL_URL"],
+    apiKey: process.env["PTERODACTYL_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
   if (!baseUrl || !apiKey) {
     res.json({ ok: true, demo: true });
     return;
@@ -4762,9 +4780,11 @@ router.post("/pterodactyl/power", requireAuth, async (req: AuthRequest, res) => 
 // count can be pinpointed (unrecognized game, no allocation, unreachable
 // host, closed query port) without reading server logs. Never echoes the key.
 router.get("/pterodactyl/diagnostics", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "pterodactyl");
-  const baseUrl = saved.url || process.env["PTERODACTYL_URL"];
-  const apiKey = saved.apiKey || process.env["PTERODACTYL_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "pterodactyl", {
+    url: process.env["PTERODACTYL_URL"],
+    apiKey: process.env["PTERODACTYL_API_KEY"],
+  });
+  const { url: baseUrl, apiKey } = connection;
 
   if (!baseUrl || !apiKey) {
     // No sample data — diagnosing an unconfigured service is meaningless.
@@ -4902,9 +4922,12 @@ function keyExpiryStatus(
 }
 
 router.get("/tailscale", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "tailscale");
-  const tailnet = saved.url || process.env["TAILSCALE_TAILNET"];
-  const apiKey = saved.apiKey || process.env["TAILSCALE_API_KEY"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "tailscale", {
+    url: process.env["TAILSCALE_TAILNET"],
+    apiKey: process.env["TAILSCALE_API_KEY"],
+  });
+  const tailnet = connection.url;
+  const apiKey = connection.apiKey;
 
   if (!tailnet || !apiKey) {
     // Sample data only when the service is genuinely unconfigured.
@@ -5187,8 +5210,10 @@ async function fetchErsatzActiveStreams(base: string): Promise<number | null> {
 }
 
 router.get("/ersatztv", requireAuth, async (req: AuthRequest, res) => {
-  const saved = getSavedConnection(req.user!.userId, "ersatztv");
-  const baseUrl = saved.url || process.env["ERSATZTV_URL"];
+  const connection = savedOrEnvironmentConnection(req.user!.userId, "ersatztv", {
+    url: process.env["ERSATZTV_URL"],
+  });
+  const baseUrl = connection.url;
 
   if (!baseUrl) {
     // Sample data only when the service is genuinely unconfigured.
@@ -5263,8 +5288,10 @@ router.get("/ersatztv", requireAuth, async (req: AuthRequest, res) => {
 const ERSATZ_STREAM_PREFIX = "/api/widgets/ersatztv/stream";
 
 function resolveErsatzBase(userId: number): string | null {
-  const saved = getSavedConnection(userId, "ersatztv");
-  const baseUrl = saved.url || process.env["ERSATZTV_URL"];
+  const connection = savedOrEnvironmentConnection(userId, "ersatztv", {
+    url: process.env["ERSATZTV_URL"],
+  });
+  const baseUrl = connection.url;
   return baseUrl ? trimSlash(baseUrl) : null;
 }
 
@@ -5830,13 +5857,13 @@ const FINNHUB_BASE = "https://finnhub.io/api/v1";
 // keep working. Finnhub is the chosen free provider (simple per-symbol /quote
 // endpoint + /search on the free tier).
 function getStocksApiKey(userId: number): string | undefined {
-  const saved = getSavedConnection(userId, "stocks");
-  return (
-    saved.apiKey ||
-    process.env["FINNHUB_API_KEY"]?.trim() ||
-    process.env["STOCKS_API_KEY"]?.trim() ||
-    undefined
-  );
+  const connection = savedOrEnvironmentConnection(userId, "stocks", {
+    apiKey:
+      process.env["FINNHUB_API_KEY"]?.trim() ||
+      process.env["STOCKS_API_KEY"]?.trim() ||
+      undefined,
+  });
+  return connection.apiKey;
 }
 
 // A small static catalog used both for sample quotes (unconfigured) and as a

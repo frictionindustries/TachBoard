@@ -8,3 +8,11 @@ description: The service_connections and service_health tables were migrated fro
 **Why:** Any authenticated user could previously read/write another user's saved integration credentials and OAuth tokens because the schema had no per-user isolation.
 
 **How to apply:** Any new saved-connection lookup or write MUST take `userId` as an explicit parameter (never read from a module-level `req` closure — that was a bug caught mid-migration where a helper function referenced `req.user` outside any request handler). `healthCheck.ts` now loops over all users (`SELECT id FROM users`) and checks connections per user, since health checks can no longer be done once globally. New users get seeded empty connection rows via `createDefaultServiceConnections(userId)` on signup. Existing test mocks for `connectionStmts.findByService`/`upsert` must accept `(userId, service, ...)` in that order, not `(service, ...)`.
+
+## Legacy environment configuration compatibility
+
+Treat user-saved service settings as one credential bundle, never as field-by-field overrides of deployment settings. Preserve legacy environment configuration only when the saved connection is genuinely empty; partially saved settings must not borrow deployment credentials.
+
+**Why:** Legacy environment-only installations must continue working with automatically seeded empty connection rows. Mixing a user's chosen endpoint with deployment credentials discloses shared secrets, while falling back wholesale on incomplete saved media settings can expose deployment service data unexpectedly.
+
+**How to apply:** Preserve the distinction between empty seeded rows and meaningful partial user configuration when adding service resolvers. Scope upstream login reuse to the Tachboard account and current credential bundle, not just upstream identity, so password changes cannot keep using old sessions.

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import express, { type Express } from "express";
 import request from "supertest";
 
@@ -6,8 +6,8 @@ import request from "supertest";
 // Replace the auth middleware with a pass-through so we can exercise the routes
 // without minting a real JWT.
 vi.mock("../lib/auth.js", () => ({
-  requireAuth: (req: { user?: { userId: number } }, _res: unknown, next: () => void) => {
-    req.user = { userId: 1 };
+  requireAuth: (req: { user?: { userId: number }; headers: Record<string, unknown> }, _res: unknown, next: () => void) => {
+    req.user = { userId: Number(req.headers["x-test-user"] ?? 1) };
     next();
   },
 }));
@@ -21,6 +21,7 @@ vi.mock("../lib/db.js", () => ({
     findByService: { get: (...args: unknown[]) => findByService(...args) },
     upsert: { run: (...args: unknown[]) => upsertRun(...args) },
   },
+  healthStmts: {},
 }));
 
 // Stub the shared axios instance so we control every upstream HTTP response and
@@ -33,6 +34,7 @@ const httpDelete = vi.fn();
 const cloudGet = vi.fn();
 const cloudPost = vi.fn();
 vi.mock("../lib/http.js", () => ({
+  HTTP_TIMEOUT: 1000,
   httpClient: {
     get: (...args: unknown[]) => httpGet(...args),
     post: (...args: unknown[]) => httpPost(...args),
@@ -87,6 +89,7 @@ const queryGamePlayersDetailed = vi.fn();
 
 // Imported after the mocks are registered (vi.mock is hoisted above imports).
 const { default: widgetsRouter } = await import("./widgets.js");
+const { default: connectionsRouter } = await import("./connections.js");
 // The fetch cache is real (not mocked) — weather tests invalidate their keys
 // so entries never leak between tests.
 const { invalidateFetchCache } = await import("../lib/fetchCache.js");
@@ -95,6 +98,7 @@ function makeApp(): Express {
   const app = express();
   app.use(express.json());
   app.use("/widgets", widgetsRouter);
+  app.use("/connections", connectionsRouter);
   return app;
 }
 
@@ -138,6 +142,194 @@ beforeEach(() => {
   queryGamePlayersDetailed.mockResolvedValue({ players: null, reason: "timeout", detail: "stubbed" });
   // Default: every service is unconfigured unless a test says otherwise.
   findByService.mockReturnValue(undefined);
+});
+
+describe("saved connection credential isolation", () => {
+  // These are synthetic secrets, never the deployment's actual credentials.
+  const services = [
+    ["truenas", "TRUENAS", "/truenas"],
+    ["truenas", "TRUENAS", "/truenas/diagnostics"],
+    ["sonarr", "SONARR", "/sonarr"],
+    ["radarr", "RADARR", "/radarr"],
+    ["lidarr", "LIDARR", "/lidarr"],
+    ["pihole", "PIHOLE", "/pihole"],
+    ["prowlarr", "PROWLARR", "/prowlarr"],
+    ["pterodactyl", "PTERODACTYL", "/pterodactyl"],
+    ["pterodactyl", "PTERODACTYL", "/pterodactyl/diagnostics"],
+    ["tailscale", "TAILSCALE", "/tailscale"],
+    ["qbittorrent", "QBITTORRENT", "/qbittorrent"],
+    ["nginx-proxy-manager", "NPM", "/nginx-proxy-manager"],
+    ["plex", "MEDIA_SERVER", "/media?server=plex"],
+    ["jellyfin", "MEDIA_SERVER", "/media?server=jellyfin"],
+    ["plex", "MEDIA_SERVER", "/media/continue?server=plex"],
+    ["jellyfin", "MEDIA_SERVER", "/media/continue?server=jellyfin"],
+    ["plex", "MEDIA_SERVER", "/audioplayer?source=plex"],
+    ["jellyfin", "MEDIA_SERVER", "/audioplayer?source=jellyfin"],
+  ] as const;
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["sonarr", "SONARR"],
+    ["qbittorrent", "QBITTORRENT"],
+    ["nginx-proxy-manager", "NPM"],
+  ])("does not borrow deployment credentials after PUT saves a partial %s connection", async (service, prefix) => {
+    vi.stubEnv(`${prefix}_URL`, "https://deployment.example");
+    vi.stubEnv(`${prefix}_API_KEY`, "synthetic-shared-key");
+    vi.stubEnv(`${prefix}_USERNAME`, "synthetic-shared-user");
+    vi.stubEnv(`${prefix}_EMAIL`, "synthetic-shared-email");
+    vi.stubEnv(`${prefix}_PASSWORD`, "synthetic-shared-password");
+    let row: ReturnType<typeof connRow> | undefined;
+    findByService.mockImplementation((userId, name) => userId === 91 && name === service ? row : undefined);
+    upsertRun.mockImplementation((userId, name, url, apiKey, username, password, extra) => {
+      expect(userId).toBe(91);
+      expect(name).toBe(service);
+      row = connRow({ service: name, url, api_key: apiKey, username, password, extra });
+    });
+    const saved = await request(app).put(`/connections/${service}`).set("x-test-user", "91")
+      .send({ url: "https://attacker.example", username: "own-login" });
+    expect(saved.status).toBe(200);
+    expect(saved.body.apiKey).toBeNull();
+    expect(saved.body.password).toBeNull();
+    expect((await request(app).get(`/widgets/${service}`).set("x-test-user", "91")).status).toBe(200);
+    expect(httpGet).not.toHaveBeenCalled();
+    expect(httpPost).not.toHaveBeenCalled();
+  });
+
+  it.each(services)("does not send shared secrets for a saved %s URL (%s, %s)", async (service, prefix, path) => {
+    vi.stubEnv(`${prefix}_URL`, "https://deployment.example");
+    vi.stubEnv(`${prefix}_API_KEY`, "synthetic-shared-key");
+    vi.stubEnv(`${prefix}_USERNAME`, "synthetic-shared-user");
+    vi.stubEnv(`${prefix}_EMAIL`, "synthetic-shared-email");
+    vi.stubEnv(`${prefix}_PASSWORD`, "synthetic-shared-password");
+    vi.stubEnv("TAILSCALE_TAILNET", "synthetic-shared-tailnet");
+    if (prefix === "MEDIA_SERVER") vi.stubEnv("MEDIA_SERVER_TYPE", service);
+    findByService.mockImplementation((_userId, name) =>
+      name === service ? connRow({ service, url: "https://attacker.example" }) : undefined,
+    );
+    httpGet.mockResolvedValue({ data: [] });
+    cloudGet.mockResolvedValue({ data: [] });
+    httpPost.mockResolvedValue({ data: {}, headers: {} });
+
+    const res = await request(app).get(`/widgets${path}`);
+    expect(res.status).not.toBe(500);
+    const outbound = JSON.stringify([
+      httpGet.mock.calls, httpPost.mock.calls, httpPut.mock.calls,
+      httpDelete.mock.calls, cloudGet.mock.calls, cloudPost.mock.calls,
+    ]);
+    expect(outbound).not.toContain("synthetic-shared-");
+    expect(outbound).not.toContain("deployment.example");
+  });
+
+  it.each(["api_key", "username", "password", "extra"])(
+    "does not complete a saved %s with an environment endpoint or secret",
+    async (field) => {
+      vi.stubEnv("SONARR_URL", "https://deployment.example");
+      vi.stubEnv("SONARR_API_KEY", "synthetic-shared-key");
+      findByService.mockReturnValue(connRow({
+        [field]: field === "extra" ? JSON.stringify({ token: "own-token" }) : "own-value",
+      }));
+      await request(app).get("/widgets/sonarr");
+      expect(httpGet).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([undefined, connRow()])("retains whole environment fallback for an empty connection", async (row) => {
+    vi.stubEnv("SONARR_URL", "https://deployment.example");
+    vi.stubEnv("SONARR_API_KEY", "synthetic-shared-key");
+    findByService.mockReturnValue(row);
+    httpGet.mockResolvedValue({ data: [] });
+    const res = await request(app).get("/widgets/sonarr");
+    expect(res.status).toBe(200);
+    expect(httpGet).toHaveBeenCalled();
+    for (const [url, options] of httpGet.mock.calls) {
+      expect(url).toContain("https://deployment.example/");
+      expect(options.headers["X-Api-Key"]).toBe("synthetic-shared-key");
+    }
+  });
+
+  it("uses only a complete saved connection even when environment settings exist", async () => {
+    vi.stubEnv("SONARR_URL", "https://deployment.example");
+    vi.stubEnv("SONARR_API_KEY", "synthetic-shared-key");
+    findByService.mockReturnValue(connRow({ url: "https://own.example/", api_key: "own-key" }));
+    httpGet.mockResolvedValue({ data: [] });
+    expect((await request(app).get("/widgets/sonarr")).status).toBe(200);
+    for (const [url, options] of httpGet.mock.calls) {
+      expect(url).toContain("https://own.example/");
+      expect(options.headers["X-Api-Key"]).toBe("own-key");
+    }
+  });
+});
+
+describe("upstream session isolation", () => {
+  const cases = ["qbittorrent", "nginx-proxy-manager"] as const;
+
+  function configure(service: typeof cases[number], suffix: string) {
+    const url = `https://${service}-${suffix}.example`;
+    let password = "correct-password";
+    findByService.mockImplementation((_userId, name) =>
+      name === service ? connRow({ service, url, username: "known-login", password }) : undefined,
+    );
+    httpPost.mockResolvedValue(service === "qbittorrent"
+      ? { data: "Ok.", headers: { "set-cookie": ["SID=victim; path=/"] } }
+      : { data: { token: "victim-token", expires: new Date(Date.now() + 3600_000).toISOString() } });
+    httpGet.mockResolvedValue({ data: [] });
+    return {
+      setPassword(value: string) { password = value; },
+      rejectLogin() {
+        httpPost.mockResolvedValue(service === "qbittorrent"
+          ? { data: "Fails.", headers: {} }
+          : { data: {} });
+      },
+    };
+  }
+
+  it.each(cases)("%s reuses a session only for the same user and credentials", async (service) => {
+    configure(service, "reuse");
+    expect((await request(app).get(`/widgets/${service}`).set("x-test-user", "71")).status).toBe(200);
+    expect((await request(app).get(`/widgets/${service}`).set("x-test-user", "71")).status).toBe(200);
+    expect(httpPost).toHaveBeenCalledTimes(1);
+    expect((await request(app).get(`/widgets/${service}`).set("x-test-user", "72")).status).toBe(200);
+    expect(httpPost).toHaveBeenCalledTimes(2);
+    expect(findByService).toHaveBeenCalledWith(72, service);
+  });
+
+  it.each(cases)("%s does not let another user with a wrong password reuse the victim session", async (service) => {
+    const fixture = configure(service, "cross-user");
+    expect((await request(app).get(`/widgets/${service}`).set("x-test-user", "81")).status).toBe(200);
+    fixture.setPassword("wrong-password");
+    fixture.rejectLogin();
+    httpGet.mockClear();
+    const res = await request(app).get(`/widgets/${service}`).set("x-test-user", "82");
+    expect(res.status).toBe(502);
+    expect(httpPost).toHaveBeenCalledTimes(2);
+    expect(httpGet).not.toHaveBeenCalled();
+    expect(JSON.stringify(res.body)).not.toContain("victim");
+  });
+
+  it.each(cases)("%s reauthenticates after the same user's password changes", async (service) => {
+    const fixture = configure(service, "changed-password");
+    expect((await request(app).get(`/widgets/${service}`)).status).toBe(200);
+    fixture.setPassword("wrong-password");
+    fixture.rejectLogin();
+    httpGet.mockClear();
+    expect((await request(app).get(`/widgets/${service}`)).status).toBe(502);
+    expect(httpPost).toHaveBeenCalledTimes(2);
+    expect(httpGet).not.toHaveBeenCalled();
+  });
+
+  it("locally expires a qBittorrent session even if upstream never rejects it", async () => {
+    configure("qbittorrent", "local-expiry");
+    expect((await request(app).get("/widgets/qbittorrent")).status).toBe(200);
+    const later = Date.now() + 24 * 3600_000;
+    const clock = vi.spyOn(Date, "now").mockReturnValue(later);
+    try {
+      expect((await request(app).get("/widgets/qbittorrent")).status).toBe(200);
+      expect(httpPost).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
 });
 
 describe("Finnhub TLS-verified requests", () => {
