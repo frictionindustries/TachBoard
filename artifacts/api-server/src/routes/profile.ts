@@ -13,10 +13,10 @@ import { requireAuth, type AuthRequest } from "../lib/auth.js";
 import { createImportedTile, cleanVariant } from "./tiles.js";
 import {
   buildExportedPages,
-  uniquePageName,
   cleanName,
   applyLayoutUpdate,
 } from "./pages.js";
+import { createPageNameAllocator, importBudgetError } from "../lib/importBudget.js";
 
 const router = Router();
 
@@ -99,6 +99,11 @@ router.post("/import", requireAuth, (req: AuthRequest, res) => {
     return;
   }
 
+  const budgetError = importBudgetError(req.body);
+  if (budgetError) {
+    res.status(400).json({ error: budgetError });
+    return;
+  }
   const parsed = ImportProfileBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "This file is not a valid profile export." });
@@ -163,11 +168,10 @@ router.post("/import", requireAuth, (req: AuthRequest, res) => {
       resolveModeId(mode.name);
     }
 
-    const taken = new Set(pageStmts.findAllByUser.all(userId).map((p) => p.name));
+    const allocateName = createPageNameAllocator(pageStmts.findAllByUser.all(userId).map((p) => p.name));
     let position = (pageStmts.maxPosition.get(userId)!.maxPos ?? -1) + 1;
     for (const incoming of envelope.pages) {
-      const name = uniquePageName(cleanName(incoming.name), taken);
-      taken.add(name);
+      const name = allocateName(cleanName(incoming.name));
       const pageRow = pageStmts.create.get(userId, name, position)!;
       applyLayoutUpdate(userId, pageRow.id, incoming);
       position++;

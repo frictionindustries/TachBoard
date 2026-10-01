@@ -127,3 +127,51 @@ WantedBy=multi-user.target
 Upgrading a bundle: stop the server, replace the bundle folder with the new
 release, keep your data folder, start again. Upgrading Docker: pull the new
 tag and recreate the container; the `/data` volume carries everything over.
+
+## Resource limits (single-process homelab deployments)
+
+These fixed safeguards require no environment settings or extra signup steps:
+
+- **Accounts:** at most **32 stored users** can be registered. The quota is
+  counted from SQLite, survives restarts, and is rechecked under a write
+  transaction after password hashing. Account/default-page initialization is
+  atomic. Existing accounts, including installations already above the limit,
+  can still log in; no existing data is deleted.
+- **Signup credentials:** username **3–64 UTF-16 code units**, password at least
+  **6 UTF-16 code units** and at most **72 UTF-8 bytes** (bcrypt's effective
+  limit). Names are not trimmed, lowercased, or otherwise normalized.
+- **Legacy login:** nonempty string username/password, username at most
+  **256 UTF-16 code units**, password at most **1024 UTF-8 bytes**. Old short
+  credentials and bcrypt's historical 72-byte password truncation still work
+  within these bounds. Previously accepted values beyond these limits are
+  rejected; new signups cannot create silently truncated passwords.
+- **Auth bodies:** login/register accept uncompressed JSON or URL-encoded
+  `username`/`password` only, with a **4096-byte** body cap applied before the
+  general **5 MiB** JSON parser. Form bodies allow only **2 parameters**.
+  Compressed bodies and unsupported content types return HTTP 415; oversized
+  bodies return 413 and invalid credentials/body shapes return 400.
+- **Auth abuse protection:** login/register share fixed **60-second** windows:
+  **30 requests per socket source / 120 globally**, and **10 bcrypt starts per
+  source / 20 globally**. Only **2 bcrypt operations** may run concurrently;
+  excess work is rejected, not queued. HTTP 429 includes `Retry-After`.
+  Successes do not reset allowances. State is bounded to **1024 source
+  buckets**, expired buckets are pruned, and live buckets are not evicted to
+  make room for new sources. These request/CPU counters reset on server
+  restart; the account quota does not.
+- **Reverse proxies:** rate-limit identity is the TCP socket's remote address,
+  never `X-Forwarded-For`, `X-Real-IP`, or Express's trusted-proxy IP. Clients
+  behind the same proxy therefore intentionally share a source allowance.
+  Global limits also cover attacks that rotate IPs. Keep the deployment to one
+  server process for the documented CPU/request ceilings; multiple processes
+  each have their own counters (the SQLite account quota remains shared).
+- **Page/profile imports:** before schema parsing, each request is limited to
+  **100 pages**, **500 total layouts**, and **4000 total tile entries**. Both
+  tile copies in v2 exports count toward the total. Profile imports also allow
+  at most **100 device modes** and **200 connections**, so profile import
+  cannot bypass the page-import budget. Excess imports are rejected before
+  database writes. Name collision allocation is amortized linear rather than
+  repeated unbounded suffix searches.
+
+These caps bound application work; they are not a substitute for network-level
+connection/body-timeout limits or access controls when exposing a homelab to the
+public internet.

@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
+import { createAuthIngress } from "./lib/authResources.js";
 
 const dataDir = process.env["DATA_DIR"] || "./data";
 
@@ -30,6 +31,8 @@ app.use(
   }),
 );
 app.use(cors());
+// Auth is deliberately parsed/throttled first; imports keep their larger limit.
+app.use("/api/auth", createAuthIngress());
 // Allow a generous JSON body so page-import uploads (which can contain many
 // tiles and their settings) aren't rejected by the default 100kb limit.
 app.use(express.json({ limit: "5mb" }));

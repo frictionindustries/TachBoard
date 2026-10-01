@@ -66,3 +66,4 @@
 - [Picture Frame tile](pictureframe-tile.md) — album photos come as authed /api/widgets/photos proxy paths (blob-fetch w/ token); Google baseUrls re-resolved per request; sample- albumIds = demo mode; frames drawn as padding+background.
 - [Public-only protocol targets](public-only-protocol-targets.md) — IMAP, CalDAV, and metadata-derived game probes must not inherit the homelab HTTP client's private-network allowance.
 - [Upstream resource budgets](upstream-resource-budgets.md) — scope response-size limits to buffering consumers; global RSS-sized limits would break legitimate homelab transfers.
+- [Authentication resource policy](auth-resource-policy.md) — harden existing flows rather than add approval features; proxy-aware identity requires a verified trust boundary.

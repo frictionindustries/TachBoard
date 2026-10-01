@@ -10,6 +10,7 @@ import {
 } from "../lib/db.js";
 import { requireAuth, type AuthRequest } from "../lib/auth.js";
 import { exportTile, createImportedTile, cleanVariant } from "./tiles.js";
+import { createPageNameAllocator, importBudgetError } from "../lib/importBudget.js";
 
 const router = Router();
 
@@ -63,16 +64,6 @@ export function buildExportedPages(userId: number, pages: DbPage[]) {
         layouts: Array.from(groups.values()),
       };
   });
-}
-
-// Pick a page name that doesn't collide with any name already taken. Appends
-// " (2)", " (3)", … until a free name is found, mirroring how a file manager
-// de-duplicates copies.
-export function uniquePageName(base: string, taken: Set<string>): string {
-  if (!taken.has(base)) return base;
-  let n = 2;
-  while (taken.has(`${base} (${n})`)) n++;
-  return `${base} (${n})`;
 }
 
 export function formatPage(p: DbPage) {
@@ -177,6 +168,11 @@ router.get("/:id/export", requireAuth, (req: AuthRequest, res) => {
 // names. Registered before /:id so the literal "import" path is not captured by
 // the id param.
 router.post("/import", requireAuth, (req: AuthRequest, res) => {
+  const budgetError = importBudgetError(req.body);
+  if (budgetError) {
+    res.status(400).json({ error: budgetError });
+    return;
+  }
   // Validate the entire payload against the generated schema first. This
   // rejects malformed files (wrong types, null/garbage page or tile entries,
   // missing required fields) with a clean 400 before anything is created, and
@@ -201,7 +197,7 @@ router.post("/import", requireAuth, (req: AuthRequest, res) => {
     return;
   }
 
-  const taken = new Set(
+  const allocateName = createPageNameAllocator(
     pageStmts.findAllByUser.all(req.user!.userId).map((p) => p.name),
   );
   const { maxPos } = pageStmts.maxPosition.get(req.user!.userId)!;
@@ -228,8 +224,7 @@ router.post("/import", requireAuth, (req: AuthRequest, res) => {
   const importAll = db.transaction(() => {
     let position = (maxPos ?? -1) + 1;
     for (const incoming of envelope.pages) {
-      const name = uniquePageName(cleanName(incoming.name), taken);
-      taken.add(name);
+      const name = allocateName(cleanName(incoming.name));
       const pageRow = pageStmts.create.get(req.user!.userId, name, position)!;
       applyLayoutUpdate(req.user!.userId, pageRow.id, incoming);
       position++;

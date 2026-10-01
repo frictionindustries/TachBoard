@@ -2,91 +2,129 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db, userStmts, createDefaultPage, createDefaultDeviceMode, createDefaultServiceConnections, type DbUser } from "../lib/db.js";
 import { signToken, requireAuth, type AuthRequest } from "../lib/auth.js";
+import { logger } from "../lib/logger.js";
+import { AUTH_LIMITS, authResourceLimiter, authSource, validateCredentials, type AuthResourceLimiter } from "../lib/authResources.js";
 
-const router = Router();
+const countUsers = db.prepare<[], { count: number }>("SELECT COUNT(*) AS count FROM users");
+
+// Hashing is asynchronous; the quota and username must be rechecked afterwards.
+// BEGIN IMMEDIATE serializes this check with inserts even across SQLite
+// connections. Defaults and the account are committed/rolled back together.
+const createAccount = db.transaction((username: string, hashed: string) => {
+  if (countUsers.get()!.count >= AUTH_LIMITS.accounts) return { error: "quota" } as const;
+  if (userStmts.findByUsername.get(username)) return { error: "duplicate" } as const;
+  const row = userStmts.create.get(username, hashed)!;
+  const user = userStmts.findById.get(row.id)!;
+  createDefaultPage(user.id);
+  createDefaultDeviceMode(user.id);
+  createDefaultServiceConnections(user.id);
+  return { user } as const;
+});
 
 function formatUser(user: DbUser) {
   return { id: user.id, username: user.username };
 }
 
-// POST /api/auth/register
-router.post("/register", async (req, res) => {
-  try {
-    const { username, password } = req.body as { username?: string; password?: string };
-    if (!username || !password) {
-      res.status(400).json({ error: "Username and password required" });
-      return;
+export function createAuthRouter(limiter: AuthResourceLimiter = authResourceLimiter): Router {
+  const router = Router();
+
+  // POST /api/auth/register
+  router.post("/register", async (req, res) => {
+    try {
+      const input = validateCredentials(req.body, "register");
+      if (!input.ok) {
+        res.status(400).json({ error: input.error });
+        return;
+      }
+      const { username, password } = input.credentials;
+
+      if (countUsers.get()!.count >= AUTH_LIMITS.accounts) {
+        res.status(403).json({ error: `Account limit reached (${AUTH_LIMITS.accounts} users)` });
+        return;
+      }
+      const existing = userStmts.findByUsername.get(username);
+      if (existing) {
+        res.status(400).json({ error: "Username already taken" });
+        return;
+      }
+
+      const admission = limiter.acquireBcrypt(authSource(req));
+      if (!admission.ok) {
+        res.setHeader("Retry-After", admission.retryAfter);
+        res.status(429).json({ error: admission.error });
+        return;
+      }
+      let hashed: string;
+      try {
+        hashed = await bcrypt.hash(password, 12);
+      } finally {
+        admission.release();
+      }
+      const created = createAccount.immediate(username, hashed);
+      if ("error" in created) {
+        if (created.error === "quota") {
+          res.status(403).json({ error: `Account limit reached (${AUTH_LIMITS.accounts} users)` });
+        } else {
+          res.status(400).json({ error: "Username already taken" });
+        }
+        return;
+      }
+      const { user } = created;
+      const token = signToken({ userId: user.id, username: user.username });
+      res.status(201).json({ token, user: formatUser(user) });
+    } catch (err) {
+      logger.error({ err }, "Registration failed");
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (username.length < 3) {
-      res.status(400).json({ error: "Username must be at least 3 characters" });
-      return;
+  });
+
+  // POST /api/auth/login
+  router.post("/login", async (req, res) => {
+    try {
+      const input = validateCredentials(req.body, "login");
+      if (!input.ok) {
+        res.status(400).json({ error: input.error });
+        return;
+      }
+      const { username, password } = input.credentials;
+
+      const user = userStmts.findByUsername.get(username);
+      if (!user) {
+        res.status(401).json({ error: "Invalid credentials" });
+        return;
+      }
+
+      const admission = limiter.acquireBcrypt(authSource(req));
+      if (!admission.ok) {
+        res.setHeader("Retry-After", admission.retryAfter);
+        res.status(429).json({ error: admission.error });
+        return;
+      }
+      let valid: boolean;
+      try {
+        valid = await bcrypt.compare(password, user.password);
+      } finally {
+        admission.release();
+      }
+      if (!valid) {
+        res.status(401).json({ error: "Invalid credentials" });
+        return;
+      }
+
+      const token = signToken({ userId: user.id, username: user.username });
+      res.json({ token, user: formatUser(user) });
+    } catch (err) {
+      logger.error({ err }, "Login failed");
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (password.length < 6) {
-      res.status(400).json({ error: "Password must be at least 6 characters" });
-      return;
-    }
+  });
 
-    const existing = userStmts.findByUsername.get(username);
-    if (existing) {
-      res.status(400).json({ error: "Username already taken" });
-      return;
-    }
+  // GET /api/auth/me
+  router.get("/me", requireAuth, (req: AuthRequest, res) => {
+    res.json({ id: req.user!.userId, username: req.user!.username });
+  });
 
-    const hashed = await bcrypt.hash(password, 12);
-    const createUser = db.prepare<[string, string], { id: number }>(
-      "INSERT INTO users (username, password) VALUES (?, ?) RETURNING id"
-    );
-    const row = createUser.get(username, hashed)!;
-    const user = userStmts.findById.get(row.id)!;
-    // Every new user starts with a single default page so the dashboard always
-    // has at least one page to render and drop tiles onto.
-    createDefaultPage(user.id);
-    // …and with a single default device mode that all their tiles belong to.
-    createDefaultDeviceMode(user.id);
-    // Every new user starts with their own empty service connection rows
-    // (never shared with other users) so Settings always has something to
-    // render for them.
-    createDefaultServiceConnections(user.id);
-    const token = signToken({ userId: user.id, username: user.username });
-    res.status(201).json({ token, user: formatUser(user) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  return router;
+}
 
-// POST /api/auth/login
-router.post("/login", async (req, res) => {
-  try {
-    const { username, password } = req.body as { username?: string; password?: string };
-    if (!username || !password) {
-      res.status(400).json({ error: "Username and password required" });
-      return;
-    }
-
-    const user = userStmts.findByUsername.get(username);
-    if (!user) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-
-    const token = signToken({ userId: user.id, username: user.username });
-    res.json({ token, user: formatUser(user) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// GET /api/auth/me
-router.get("/me", requireAuth, (req: AuthRequest, res) => {
-  res.json({ id: req.user!.userId, username: req.user!.username });
-});
-
-export default router;
+export default createAuthRouter();
