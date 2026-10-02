@@ -183,6 +183,8 @@ jobs:
       - name: Download release archives
         uses: actions/download-artifact@v4
         with:
+          # Exclude Docker build records and other non-bundle artifacts.
+          pattern: tachboard-*
           path: archives
           merge-multiple: true
 
