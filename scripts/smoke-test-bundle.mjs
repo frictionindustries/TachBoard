@@ -124,10 +124,28 @@ try {
   }
   console.log("[smoke] DATA_DIR contains database + persisted jwt-secret OK");
 
-  console.log("[smoke] PASS — bundle is releasable");
   done = true;
 } finally {
-  child.kill("SIGTERM");
-  fs.rmSync(dataDir, { recursive: true, force: true });
+  done = true;
+  // kill() only sends a signal; Windows retains SQLite file locks until the
+  // child actually closes. Register the listener BEFORE signaling shutdown.
+  if (child.exitCode === null && child.signalCode === null) {
+    await new Promise((resolve, reject) => {
+      const forceTimer = setTimeout(() => child.kill("SIGKILL"), 5000);
+      const timeout = setTimeout(() => {
+        clearTimeout(forceTimer);
+        reject(new Error("Smoke-test server did not stop within 15 seconds"));
+      }, 15000);
+      child.once("close", () => {
+        clearTimeout(forceTimer);
+        clearTimeout(timeout);
+        resolve();
+      });
+      child.kill("SIGTERM");
+    });
+  }
+  // Antivirus/indexing can briefly retain handles even after process exit.
+  fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
+console.log("[smoke] PASS — bundle is releasable");
 process.exit(0);
