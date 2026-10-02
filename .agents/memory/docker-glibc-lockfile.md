@@ -1,31 +1,23 @@
 ---
 name: Self-hosted Docker must use glibc base image
-description: Why the Dockerfile for self-hosted deploys must use node:*-slim (Debian/glibc), not Alpine (musl)
+description: Preserve native dependencies for all release platforms and keep Docker on glibc
 ---
 
 # Self-hosted Docker base image must be glibc, not Alpine
 
-The Replit pnpm-monorepo template's `pnpm-lock.yaml` has a large `overrides:`
-block that sets every platform-specific native binary EXCEPT the build host's to
-`'-'` (excluded). The Replit host is **glibc x64**, so only the `*-linux-x64-gnu`
-variants are kept (rollup, lightningcss, @tailwindcss/oxide, esbuild, etc.); all
-`*-musl*` and other-arch variants are stripped.
+The original template excluded every platform-specific binary except Linux
+glibc x64. This is not compatible with cross-platform releases: preserve the
+native esbuild, Rollup, Lightning CSS, and Tailwind Oxide optional dependencies
+for Linux x64/arm64 (glibc), macOS x64/arm64, and Windows x64.
 
-**Why this matters:** with `pnpm install --frozen-lockfile`, pnpm can only install
-what the lockfile resolves. On an **Alpine (musl)** base image the musl native
-binaries are excluded in the lockfile, so they can never install. Symptom chain
-when building on Alpine: `better-sqlite3` tries to compile (no musl prebuild) →
-after adding python3/make/g++ it gets past that, then rollup dies with
-`Cannot find module @rollup/rollup-linux-x64-musl`, and lightningcss/oxide would
-fail next. Each "fix" just exposes the next musl casualty.
+**Why:** frozen installs cannot recover packages explicitly removed by overrides.
+The first cross-platform release passed Linux x64 but failed every other bundle
+and ARM Docker at missing Rollup modules. Fixing only Rollup would leave the
+other native build tools missing next.
 
-**How to apply:** for any self-hosted Docker build of this repo, use a **glibc**
-base image — `node:20-slim` (Debian) — in every stage, NOT `node:*-alpine`. Then
-the gnu/x64 binaries the lockfile locks to match the runtime and everything
-installs. Use `apt-get install -y --no-install-recommends python3 make g++` (not
-`apk add`). On glibc, `better-sqlite3` also finds a prebuilt binary so native
-compilation is usually skipped entirely (build tools kept only as insurance).
-
-Do NOT try to fix this by editing the lockfile overrides or adding
-`supportedArchitectures` — the template regenerates/strips them, and matching the
-lockfile's existing glibc binaries via the base image is far more robust.
+**How to apply:** keep Docker on Debian/glibc (`node:*-slim`) and align its Node
+major with CI. Do not restore template exclusions for supported release targets.
+Regenerate the lockfile after override changes, and check both package entries
+and parent optional-dependency links for every target. Exclusions for unsupported
+targets, including musl, may remain. Cross-platform execution still requires
+the actual GitHub runners; a local Linux build alone is not proof.

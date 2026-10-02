@@ -1,7 +1,7 @@
 ##############################################
 # Stage 1: Build API server
 ##############################################
-FROM node:20-slim AS api-builder
+FROM node:22-slim AS api-builder
 WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
@@ -26,7 +26,7 @@ RUN pnpm --filter @workspace/api-server run build
 ##############################################
 # Stage 2: Build frontend
 ##############################################
-FROM node:20-slim AS frontend-builder
+FROM node:22-slim AS frontend-builder
 WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
@@ -50,7 +50,7 @@ RUN pnpm --filter @workspace/homelab-dashboard run build
 ##############################################
 # Stage 3: Production image
 ##############################################
-FROM node:20-slim AS production
+FROM node:22-slim AS production
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
