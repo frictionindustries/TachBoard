@@ -1,5 +1,6 @@
 {pkgs}: {
   deps = [
+    pkgs.actionlint
     pkgs.systemdLibs
     pkgs.freetype
     pkgs.fontconfig
