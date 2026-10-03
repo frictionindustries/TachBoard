@@ -1,0 +1,17 @@
+# TrueNAS SCALE 24.10+: install as a SEPARATE Custom App named tachboard-testing.
+# Create the dataset first and replace /mnt/tank/apps/tachboard-testing below.
+# Never point this at your stable app's data directory.
+services:
+  tachboard-testing:
+    image: ghcr.io/frictionindustries/tachboard:testing
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "20029:20028"
+    environment:
+      NODE_ENV: production
+      PORT: "20028"
+      DATA_DIR: /data
+      UPDATE_CHECK_DISABLED: "true"
+    volumes:
+      - /mnt/tank/apps/tachboard-testing:/data

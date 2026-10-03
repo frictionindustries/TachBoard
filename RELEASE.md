@@ -11,6 +11,70 @@ self-hosters who don't want to install Node or Docker.
 | macOS arm64 / x64 | `tachboard-macos-{arm64,x64}.tar.gz` | built natively on macOS runners |
 | Linux x64 / arm64 (no Docker) | `tachboard-linux-{x64,arm64}.tar.gz` | built natively on Linux runners |
 
+## Testing on TrueNAS with live data
+
+The separate `.github/workflows/testing.yml` workflow runs on pushes to the
+`testing` branch. It runs the API tests, then builds and publishes only the
+multi-arch Docker image (amd64 + arm64). It does not build desktop bundles,
+create a GitHub Release, or update stable version tags or `latest`.
+
+Published image references:
+
+- `ghcr.io/frictionindustries/tachboard:testing` — most recently published test build.
+- `ghcr.io/frictionindustries/tachboard:testing-<full-commit-sha>` — select a
+  particular commit for testing or rollback. For an exact immutable image,
+  use `ghcr.io/frictionindustries/tachboard@sha256:<digest>`.
+
+The workflow's GitHub Actions summary lists the tags and image digest.
+Rebuilding the same commit can refresh its commit tag, so keep the digest
+when exact reproducibility matters.
+
+### First-time setup
+
+1. Commit the new workflow and configuration, then push those changes to a
+   GitHub branch named `testing`. If that branch does not exist, create it
+   from the commit you want to test. No release tag is needed.
+2. Wait for **Actions → Testing Docker image** to finish successfully. The
+   `testing` image does not exist until the first successful publication.
+3. On TrueNAS SCALE 24.10+, create a **separate** dataset, for example
+   `/mnt/tank/apps/tachboard-testing`.
+4. Install a separate Custom App named `tachboard-testing` using
+   [`packaging/truenas/testing-compose.yaml`](packaging/truenas/testing-compose.yaml).
+   Replace its example host path with your dataset path. Leave the internal
+   `/data` mount and port `20028` unchanged.
+5. Open `http://<truenas-ip>:20029`, register your owner account first, then
+   import your profile or configure your real service connections. Keep any
+   export containing credentials private.
+
+Never share the stable app's data directory with the test app. Test data,
+accounts, and uploads must be separate. Both instances can read the same
+live services, but service-changing actions (such as playback controls)
+still affect those real services. Use read-only credentials where supported
+and keep the test app on your LAN.
+
+### Daily testing and rollback
+
+1. Commit and push a batch of changes to `testing`.
+2. Wait for the workflow to pass and publish.
+3. In TrueNAS, explicitly pull/update the test app's image and redeploy it.
+   The YAML uses `pull_policy: always` so Compose pulls when applying the
+   configuration; merely restarting an existing container may reuse its old
+   image. If your TrueNAS UI does not offer a pull/update action, edit the
+   image to the new commit-specific tag from the workflow summary and save.
+4. Test on port `20029`. Your stable app on `20028` stays unchanged.
+
+Updates are manual, not scheduled. Snapshot the test dataset before trying
+builds that might change the database. To roll back, edit the test app's
+image to an earlier commit tag or digest and redeploy. An older image does
+not undo database migrations; restore its matching dataset snapshot if needed.
+
+When satisfied, merge the tested changes into `main` and follow the normal
+release process below. A manual run of **Release** remains a dry run, not a
+testing-image publication. **Testing Docker image** also supports manual
+dispatch with the `testing` branch selected; runs on other branches skip
+publication. GitHub only shows its manual Run workflow button after the
+workflow file is present on the default branch.
+
 ## Cutting a release
 
 1. Make sure `main` is green (typecheck + tests).

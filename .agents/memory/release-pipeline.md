@@ -18,3 +18,6 @@ description: How Tachboard release bundles are built and the invariants that kee
 - Security floors for runtime externals must also reach the standalone npm install; pnpm workspace overrides do not apply there.
   **Why:** fixing the workspace lockfile alone can leave downloaded release bundles with vulnerable transitive packages.
   **How to apply:** review the standalone dependency tree when adding security overrides and carry applicable floors into its package manifest.
+- Live-data testing should use a separate TrueNAS instance and dataset, with manual image updates rather than automatic deployment.
+  **Why:** the user successfully installed on TrueNAS and approved a separate testing channel to exercise real homelab connections without disrupting their everyday dashboard.
+  **How to apply:** preserve stable-release isolation; separate dashboard data does not isolate actions against shared upstream services.

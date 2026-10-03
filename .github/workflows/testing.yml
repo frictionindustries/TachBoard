@@ -1,0 +1,86 @@
+name: Testing Docker image
+
+on:
+  push:
+    branches: [testing]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize publication so overlapping runs cannot publish out of order.
+concurrency:
+  group: tachboard-testing-image
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: Unit tests (api-server)
+    # Manual dispatch must explicitly select the testing branch.
+    if: github.ref == 'refs/heads/testing'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run api-server test suite
+        run: pnpm --filter @workspace/api-server test
+
+  docker:
+    name: Publish testing image (linux amd64+arm64)
+    needs: [tests]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Testing tags only
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=testing
+            type=raw,value=testing-${{ github.sha }}
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=tachboard-testing
+          cache-to: type=gha,scope=tachboard-testing,mode=max
+          build-args: |
+            APP_VERSION=testing-${{ github.sha }}
+            APP_REPO=${{ github.repository }}
+      - name: Show published image references
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo '## Testing image published'
+            echo 'Pull and redeploy the separate TrueNAS test app to use this build.'
+            echo '```text'
+            printf '%s\n' "$IMAGE_TAGS"
+            printf 'Digest: %s\n' "$IMAGE_DIGEST"
+            echo '```'
+            echo 'Use the commit-specific tag to select an older build, or pin the digest for an exact image.'
+          } >> "$GITHUB_STEP_SUMMARY"
