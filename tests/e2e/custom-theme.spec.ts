@@ -131,10 +131,12 @@ test("a custom theme applies, survives reload without a flash, and falls back on
   const uploadBtn = page.getByRole("button", { name: /Upload theme/i });
   await expect(uploadBtn).toBeVisible();
 
-  // The button proxies to a hidden <input type=file>; drive it directly so the
-  // full handleUpload → validateCustomTheme → addCustomTheme → setTheme path
-  // runs exactly as it would for a real user.
-  await page.locator('input[type="file"]').setInputFiles({
+  // Use the theme button's file chooser, not a page-global file input selector:
+  // Settings also has a separate profile-import input.
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await uploadBtn.click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
     name: "e2e-neon-theme.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(CUSTOM_THEME)),

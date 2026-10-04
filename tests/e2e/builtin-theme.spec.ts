@@ -147,7 +147,7 @@ test("a non-default built-in theme applies and survives reload without a flash",
   expect(baseline.computedBackground.length).toBeGreaterThan(0);
 
   // Select a distinctly different built-in theme through the real picker.
-  await page.getByRole("button", { name: /^Slate$/i }).click();
+  await page.getByRole("button", { name: "Slate", exact: true }).click();
   await expect
     .poll(async () => (await page.evaluate(readThemeState)).dataTheme)
     .toBe("nebula");
@@ -196,7 +196,7 @@ test("a per-theme color override applies before paint, survives reload, and does
   await page.getByRole("button", { name: /Upload theme/i }).waitFor();
 
   // Pick a built-in theme and give it a distinctive per-theme color override.
-  await page.getByRole("button", { name: /^Slate$/i }).click();
+  await page.getByRole("button", { name: "Slate", exact: true }).click();
   await expect
     .poll(async () => (await page.evaluate(readThemeState)).dataTheme)
     .toBe("nebula");
@@ -260,7 +260,7 @@ test("a per-theme color override applies before paint, survives reload, and does
 
   // --- Switch back: the original theme's override is still scoped to it ------
   await page.getByRole("button", { name: /Upload theme/i }).waitFor();
-  await page.getByRole("button", { name: /^Slate$/i }).click();
+  await page.getByRole("button", { name: "Slate", exact: true }).click();
   await expect
     .poll(async () => (await page.evaluate(readThemeState)).inlinePrimary)
     .toBe(EXPECTED_PRIMARY);
