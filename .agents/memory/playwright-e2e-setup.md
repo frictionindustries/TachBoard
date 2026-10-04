@@ -16,6 +16,12 @@ Root config `playwright.config.ts` + specs under `tests/e2e/`; run with `pnpm ru
 - **On Replit the Vite `/api` proxy is OFF** (gated on REPL_ID), so localhost:3000 has no API. To verify locally here, run against the platform-proxied dev domain which path-routes `/api` to the API server: `E2E_BASE_URL="https://$REPLIT_DEV_DOMAIN" pnpm exec playwright test` (setting E2E_BASE_URL skips the embedded webServer) — but this needs a running workflow, else 502.
 - **Plain `pnpm exec playwright test <spec>` now works on Replit**: the Playwright webServer command sets `VITE_FORCE_API_PROXY=1`, which overrides the REPL_ID gate in the dashboard vite config and re-enables the `/api`→localhost proxy. (Older alternative: `env -u REPL_ID pnpm exec playwright test <spec>`.) Unsetting REPL_ID also turns the Vite `/api` proxy back ON, and Playwright's embedded webServer (`pnpm run dev:local`, boots api:5000 + web:3000) inherits the env, so localhost:3000 serves both app and API. Playwright manages the server lifecycle (no flaky manual nohup). chromium must be installed first (`pnpm exec playwright install chromium` + `installSystemDependencies` — param is `packages`, not `dependencies`).
 
+## Startup theme checks
+
+Do not use DOMContentLoaded as evidence that React has not run; deferred modules execute before it.
+**Why:** React can repair missing inline startup theme application and hide a flash regression.
+**How to apply:** Hold the entry-module request, check the parsed empty root and theme state, then release it for hydration. Finish the held route continuation before removing its handler; otherwise Playwright may auto-continue the request twice.
+
 ## Auth in tests (NOT cookies)
 - Auth is a **Bearer JWT**: `POST /api/auth/register` (or `/login`) returns `{ token, user }`; the web app stores it in `localStorage["token"]` and sends `Authorization: Bearer <token>`.
 - In a spec: register via `page.request`, then (a) pass `{ Authorization: 'Bearer '+token }` on API calls like `POST /api/tiles`, and (b) `page.addInitScript(t => localStorage.setItem('token', t), token)` BEFORE the first `goto('/')` so the browser app is authed on load.

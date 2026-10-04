@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { beforeReact } from "./before-react";
 
 // ---------------------------------------------------------------------------
 // Coverage for the built-in theme + per-theme color-override application path
@@ -77,7 +78,7 @@ const EXPECTED_BACKGROUND = triplet(bgHsl.h, bgHsl.s, bgHsl.l);
 // real applied result, not React internals. `--primary`/`--background` are read
 // from the *inline* style (root.style): a per-theme color override is applied
 // as inline CSS variables by the before-paint script, so they are present even
-// at DOMContentLoaded (before the stylesheet has loaded in Vite dev). A plain
+// while the entry module (and its CSS imports) is blocked in Vite dev. A plain
 // built-in theme sets none of these inline, so they read as "".
 function readThemeState() {
   const root = document.documentElement;
@@ -159,22 +160,19 @@ test("a non-default built-in theme applies and survives reload without a flash",
   expect(savedTheme).toBe("nebula");
 
   // --- Reload: the before-paint script must apply it with no flash -----------
-  // main.tsx is a deferred module script, so it has NOT executed at
-  // DOMContentLoaded — only the inline before-paint script has. The data-theme
-  // attribute is the mechanism that prevents a flash of the default for a
-  // built-in theme (its colors live in the stylesheet), so reading it here
-  // proves the saved theme was applied synchronously before first paint.
-  await page.goto("/settings", { waitUntil: "domcontentloaded" });
-  const beforePaint = await page.evaluate(readThemeState);
-  expect(
-    beforePaint.dataTheme,
-    "built-in theme not applied before first paint",
-  ).toBe("nebula");
-  expect(beforePaint.dataTheme).not.toBe(DEFAULT_THEME);
-  // A built-in (no override) must not carry custom-only structural attributes.
-  expect(beforePaint.shadow).toBeNull();
-  expect(beforePaint.pattern).toBeNull();
-  expect(beforePaint.inlinePrimary).toBe("");
+  // Hold main.tsx so React cannot repair a missing inline application.
+  await beforeReact(page, "/settings", async () => {
+    const beforePaint = await page.evaluate(readThemeState);
+    expect(
+      beforePaint.dataTheme,
+      "built-in theme not applied before first paint",
+    ).toBe("nebula");
+    expect(beforePaint.dataTheme).not.toBe(DEFAULT_THEME);
+    // A built-in (no override) must not carry custom-only structural attributes.
+    expect(beforePaint.shadow).toBeNull();
+    expect(beforePaint.pattern).toBeNull();
+    expect(beforePaint.inlinePrimary).toBe("");
+  });
 
   // --- After hydration: the derived tokens differ from the default ----------
   await page.getByRole("button", { name: /Upload theme/i }).waitFor();
@@ -223,20 +221,23 @@ test("a per-theme color override applies before paint, survives reload, and does
   });
 
   // --- Reload: the override must be re-derived inline before first paint -----
-  // These inline CSS variables are set by the before-paint script directly, so
-  // they are observable at DOMContentLoaded regardless of stylesheet loading —
-  // proving the derived tokens are applied before paint with no flash.
-  await page.goto("/settings", { waitUntil: "domcontentloaded" });
-  const beforePaint = await page.evaluate(readThemeState);
-  expect(beforePaint.dataTheme).toBe("nebula");
-  expect(
-    beforePaint.inlinePrimary,
-    "per-theme primary override not re-applied before first paint",
-  ).toBe(EXPECTED_PRIMARY);
-  expect(beforePaint.inlineBackground).toBe(EXPECTED_BACKGROUND);
+  // Inline variables must already exist while React's entry is blocked.
+  await beforeReact(page, "/settings", async () => {
+    const beforePaint = await page.evaluate(readThemeState);
+    expect(beforePaint.dataTheme).toBe("nebula");
+    expect(
+      beforePaint.inlinePrimary,
+      "per-theme primary override not re-applied before first paint",
+    ).toBe(EXPECTED_PRIMARY);
+    expect(beforePaint.inlineBackground).toBe(EXPECTED_BACKGROUND);
+  });
 
   // --- Switch to a theme with NO override: the previous override must clear ---
   await page.getByRole("button", { name: /Upload theme/i }).waitFor();
+  const afterHydration = await page.evaluate(readThemeState);
+  expect(afterHydration.dataTheme).toBe("nebula");
+  expect(afterHydration.inlinePrimary).toBe(EXPECTED_PRIMARY);
+  expect(afterHydration.inlineBackground).toBe(EXPECTED_BACKGROUND);
   await page.getByRole("button", { name: /^Rack$/i }).click();
   await expect
     .poll(async () => (await page.evaluate(readThemeState)).dataTheme)
@@ -249,14 +250,15 @@ test("a per-theme color override applies before paint, survives reload, and does
   expect(afterSwitch.inlineBackground).toBe("");
 
   // Reloading on the un-overridden theme must also be leak-free before paint.
-  await page.goto("/settings", { waitUntil: "domcontentloaded" });
-  const rackBeforePaint = await page.evaluate(readThemeState);
-  expect(rackBeforePaint.dataTheme).toBe("rack");
-  expect(
-    rackBeforePaint.inlinePrimary,
-    "override leaked onto a non-overridden theme after reload",
-  ).toBe("");
-  expect(rackBeforePaint.inlineBackground).toBe("");
+  await beforeReact(page, "/settings", async () => {
+    const rackBeforePaint = await page.evaluate(readThemeState);
+    expect(rackBeforePaint.dataTheme).toBe("rack");
+    expect(
+      rackBeforePaint.inlinePrimary,
+      "override leaked onto a non-overridden theme after reload",
+    ).toBe("");
+    expect(rackBeforePaint.inlineBackground).toBe("");
+  });
 
   // --- Switch back: the original theme's override is still scoped to it ------
   await page.getByRole("button", { name: /Upload theme/i }).waitFor();

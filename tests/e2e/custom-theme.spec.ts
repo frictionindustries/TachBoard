@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { beforeReact } from "./before-react";
 
 // ---------------------------------------------------------------------------
 // Coverage for the custom (user-uploaded) theme visual application path
@@ -19,7 +20,7 @@ import { test, expect } from "@playwright/test";
 //      and verifies the document picks up the expected colors, radius and
 //      structural style.
 //   2. Reloads and confirms the custom theme is already applied at
-//      DOMContentLoaded — i.e. the before-paint script (not React) applied it,
+//      a blocked React entry module — only the before-paint script applied it,
 //      so there is no flash of the default theme.
 //   3. Deletes the active custom theme and verifies the app falls back to the
 //      default built-in (friction).
@@ -144,7 +145,9 @@ test("a custom theme applies, survives reload without a flash, and falls back on
 
   // The custom theme is now active. Verify the document reflects it.
   await expect
-    .poll(async () => (await page.evaluate(readThemeState, READ_VARS)).dataTheme)
+    .poll(
+      async () => (await page.evaluate(readThemeState, READ_VARS)).dataTheme,
+    )
     .toBe("custom");
 
   const applied = await page.evaluate(readThemeState, READ_VARS);
@@ -167,20 +170,23 @@ test("a custom theme applies, survives reload without a flash, and falls back on
   expect(savedTheme).toMatch(/^custom:/);
 
   // --- Reload: the before-paint script must apply it with no flash -----------
-  // main.tsx is a deferred module script, so it has NOT executed by the
-  // DOMContentLoaded event — only the inline <head> before-paint script has.
-  // Reading the theme state at that point therefore proves the custom theme was
-  // applied synchronously from localStorage, before first paint (no flash of
-  // the default theme).
-  await page.goto("/settings", { waitUntil: "domcontentloaded" });
-  const beforePaint = await page.evaluate(readThemeState, READ_VARS);
-  expect(beforePaint.dataTheme, "custom theme not applied before first paint").toBe(
-    "custom",
-  );
-  expect(beforePaint.dataTheme).not.toBe(DEFAULT_THEME);
-  expect(beforePaint["--radius"]).toBe(CUSTOM_THEME.radius);
-  expect(beforePaint["--primary"]).toBe(expectedPrimary);
-  expect(beforePaint.shadow).toBe(CUSTOM_THEME.shadow);
+  // Hold main.tsx so React cannot repair a missing inline application.
+  await beforeReact(page, "/settings", async () => {
+    const beforePaint = await page.evaluate(readThemeState, READ_VARS);
+    expect(
+      beforePaint.dataTheme,
+      "custom theme not applied before first paint",
+    ).toBe("custom");
+    expect(beforePaint.dataTheme).not.toBe(DEFAULT_THEME);
+    expect(beforePaint["--radius"]).toBe(CUSTOM_THEME.radius);
+    expect(beforePaint["--primary"]).toBe(expectedPrimary);
+    expect(beforePaint.shadow).toBe(CUSTOM_THEME.shadow);
+    expect(beforePaint["--background"]).toBe(expectedBackground);
+    expect(beforePaint["--app-font-sans"]).toBe(CUSTOM_THEME.font);
+    expect(beforePaint.pattern).toBe(CUSTOM_THEME.backgroundPattern);
+    expect(beforePaint.uppercase).toBe("off");
+    expect(beforePaint.heading).toBe(CUSTOM_THEME.headingFont);
+  });
 
   // After full hydration it is still the custom theme (didn't get reset).
   await page.getByRole("button", { name: /Upload theme/i }).waitFor();
@@ -190,11 +196,15 @@ test("a custom theme applies, survives reload without a flash, and falls back on
 
   // --- Delete the active custom theme: must fall back to the default ---------
   await page
-    .getByRole("button", { name: new RegExp(`Delete ${CUSTOM_THEME.name}`, "i") })
+    .getByRole("button", {
+      name: new RegExp(`Delete ${CUSTOM_THEME.name}`, "i"),
+    })
     .click();
 
   await expect
-    .poll(async () => (await page.evaluate(readThemeState, READ_VARS)).dataTheme)
+    .poll(
+      async () => (await page.evaluate(readThemeState, READ_VARS)).dataTheme,
+    )
     .toBe(DEFAULT_THEME);
 
   const afterDelete = await page.evaluate(readThemeState, READ_VARS);

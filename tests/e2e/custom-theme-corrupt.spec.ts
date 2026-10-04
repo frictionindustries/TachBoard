@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { beforeReact } from "./before-react";
 
 // ---------------------------------------------------------------------------
 // Coverage for the corrupt-saved-theme safety net (task #242).
@@ -31,7 +32,14 @@ import { test, expect } from "@playwright/test";
 // ---------------------------------------------------------------------------
 
 const DEFAULT_THEME = "friction";
-const KNOWN_THEMES = ["friction", "hearth", "nebula", "rack", "workshop", "pebble"];
+const KNOWN_THEMES = [
+  "friction",
+  "hearth",
+  "nebula",
+  "rack",
+  "workshop",
+  "pebble",
+];
 
 function rand(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -42,7 +50,7 @@ function rand(): string {
 // value because a built-in theme's --background lives in the stylesheet (the
 // [data-theme="..."] rule), not in an inline override. It is therefore only
 // meaningful once the CSS has loaded (i.e. after hydration), not at the
-// before-paint DOMContentLoaded moment in Vite dev.
+// pre-React assertions with the entry module blocked in Vite dev.
 function readThemeState() {
   const root = document.documentElement;
   return {
@@ -88,26 +96,27 @@ test("a corrupt (unparseable) saved theme falls back to the default and the dash
     window.localStorage.setItem("token", t as string);
     // Unparseable JSON: JSON.parse will throw and the before-paint catch +
     // readCustomThemes catch must both swallow it and yield an empty map.
-    window.localStorage.setItem("homehub:customThemes", "}{ not valid json at all");
+    window.localStorage.setItem(
+      "homehub:customThemes",
+      "}{ not valid json at all",
+    );
     // Dangling pointer at a custom id that can never resolve (the map is empty).
     window.localStorage.setItem("homehub:theme", "custom:ghost-deadbeef");
   }, token);
 
   // --- Before first paint: the inline script must have fallen back ----------
-  // main.tsx is a deferred module script, so it has NOT run at
-  // DOMContentLoaded — only the inline before-paint script has. Reading the
-  // theme state here proves the synchronous fallback happened (no crash, no
-  // unstyled flash).
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  const beforePaint = await page.evaluate(readThemeState);
-  expect(
-    beforePaint.dataTheme,
-    "before-paint script did not fall back to a known built-in theme",
-  ).toBe(DEFAULT_THEME);
-  expect(KNOWN_THEMES).toContain(beforePaint.dataTheme);
-  // The custom-only structural attributes must not be set for a built-in theme.
-  expect(beforePaint.shadow).toBeNull();
-  expect(beforePaint.pattern).toBeNull();
+  // Hold main.tsx so only the inline script can supply the fallback.
+  await beforeReact(page, "/", async () => {
+    const beforePaint = await page.evaluate(readThemeState);
+    expect(
+      beforePaint.dataTheme,
+      "before-paint script did not fall back to a known built-in theme",
+    ).toBe(DEFAULT_THEME);
+    expect(KNOWN_THEMES).toContain(beforePaint.dataTheme);
+    // The custom-only structural attributes must not be set for a built-in theme.
+    expect(beforePaint.shadow).toBeNull();
+    expect(beforePaint.pattern).toBeNull();
+  });
 
   // --- After hydration: React must render the real dashboard ---------------
   // The grid mounting proves the app booted past ThemeProvider's
@@ -129,7 +138,10 @@ test("a corrupt (unparseable) saved theme falls back to the default and the dash
   const noConsoleCrash = await page.evaluate(
     () => document.getElementById("root")?.childElementCount ?? 0,
   );
-  expect(noConsoleCrash, "React root did not mount any children").toBeGreaterThan(0);
+  expect(
+    noConsoleCrash,
+    "React root did not mount any children",
+  ).toBeGreaterThan(0);
 });
 
 test("a structurally invalid saved custom theme falls back to the default and the dashboard still renders", async ({
@@ -144,23 +156,28 @@ test("a structurally invalid saved custom theme falls back to the default and th
     window.localStorage.setItem(
       "homehub:customThemes",
       JSON.stringify({
-        "custom:broken": { format: "homehub-theme", version: 1, name: "Broken" },
+        "custom:broken": {
+          format: "homehub-theme",
+          version: 1,
+          name: "Broken",
+        },
       }),
     );
     // The active theme dangles at that now-dropped id.
     window.localStorage.setItem("homehub:theme", "custom:broken");
   }, token);
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  // The before-paint script only applies a custom def when it carries colors;
-  // this one does not, so it must fall through to the default built-in.
-  const beforePaint = await page.evaluate(readThemeState);
-  expect(
-    beforePaint.dataTheme,
-    "before-paint script did not fall back for a colorless custom entry",
-  ).toBe(DEFAULT_THEME);
-  expect(beforePaint.shadow).toBeNull();
+  await beforeReact(page, "/", async () => {
+    // The before-paint script only applies a custom def when it carries colors;
+    // this one does not, so it must fall through to the default built-in.
+    const beforePaint = await page.evaluate(readThemeState);
+    expect(
+      beforePaint.dataTheme,
+      "before-paint script did not fall back for a colorless custom entry",
+    ).toBe(DEFAULT_THEME);
+    expect(beforePaint.shadow).toBeNull();
+    expect(beforePaint.pattern).toBeNull();
+  });
 
   // React boots and renders, settling on the default built-in.
   await page.locator(".react-grid-layout").waitFor();
@@ -173,5 +190,7 @@ test("a structurally invalid saved custom theme falls back to the default and th
   const rootChildren = await page.evaluate(
     () => document.getElementById("root")?.childElementCount ?? 0,
   );
-  expect(rootChildren, "React root did not mount any children").toBeGreaterThan(0);
+  expect(rootChildren, "React root did not mount any children").toBeGreaterThan(
+    0,
+  );
 });
