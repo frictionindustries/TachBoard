@@ -197,7 +197,8 @@ export default function CalendarTile({ density, tileSettings }: WidgetProps) {
     );
   }
 
-  const detailed = density.bodyHeight >= 150;
+  // Scrollable / expanded bodies always show full row detail.
+  const detailed = density.scrollable || density.bodyHeight >= 150;
   const columns = tileColumns(density.bodyWidth);
   const accountCount = new Set(data.events.map((e) => e.account)).size;
   const failedAccounts = data.errors ?? [];

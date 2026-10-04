@@ -540,6 +540,12 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
 
   // Whether the tile hides its service-reachability status dot. Only shown for
   // connection-backed integrations (those with a reachability dot to hide).
+  // Generic per-tile option (every content tile): click the tile to view it in
+  // a large overlay panel. Default off keeps the existing click behavior.
+  const [openExpanded, setOpenExpanded] = useState<boolean>(
+    tile?.tileSettings?.openExpanded ?? false,
+  );
+
   const [hideStatusDot, setHideStatusDot] = useState<boolean>(
     tile?.tileSettings?.hideStatusDot ?? false,
   );
@@ -798,6 +804,7 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
       setAudioBrowse(tile?.tileSettings?.audioBrowse ?? true);
       setAudioPlaylists(tile?.tileSettings?.audioPlaylists ?? true);
       setScrollable(tile?.tileSettings?.scrollable ?? false);
+      setOpenExpanded(tile?.tileSettings?.openExpanded ?? false);
       setHideStatusDot(tile?.tileSettings?.hideStatusDot ?? false);
       setNoteColor(tile?.tileSettings?.noteColor ?? DEFAULT_NOTE_COLOR);
       setNoteFontSize((tile?.tileSettings?.noteFontSize as NoteFontSize) ?? "md");
@@ -1902,8 +1909,15 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
         const dotHidden = Boolean(INTEGRATION_SERVICE[integration]) && hideStatusDot;
         // Only emit a settings object when there is something to store; an
         // un-scrolled plain tile keeps tileSettings null as before.
-        if (!widget && !scrollable && !dotHidden) return null;
-        return { ...(widget ?? {}), scrollable, hideStatusDot: dotHidden };
+        // Spacers/dividers are layout-only and never expand.
+        const expandOn = !isLayoutTile && openExpanded;
+        if (!widget && !scrollable && !dotHidden && !expandOn) return null;
+        return {
+          ...(widget ?? {}),
+          scrollable,
+          hideStatusDot: dotHidden,
+          ...(expandOn ? { openExpanded: true } : {}),
+        };
       })(),
       gridX: tile?.gridX ?? defaultGridPos?.x ?? 0,
       gridY: tile?.gridY ?? defaultGridPos?.y ?? 0,
@@ -4768,6 +4782,27 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
                 onCheckedChange={(c) => setScrollable(c === true)}
               />
               <span className="text-sm">Scrollable content</span>
+            </label>
+          )}
+
+          {!isLayoutTile && (
+            <label
+              htmlFor="open-expanded"
+              className="flex items-start gap-2 cursor-pointer select-none"
+            >
+              <Checkbox
+                id="open-expanded"
+                data-testid="checkbox-open-expanded"
+                checked={openExpanded}
+                onCheckedChange={(c) => setOpenExpanded(c === true)}
+                className="mt-0.5"
+              />
+              <span className="text-sm">
+                Open in expanded panel
+                <span className="block text-xs text-muted-foreground">
+                  Click the tile to view all of its content in a large panel. The link stays available inside.
+                </span>
+              </span>
             </label>
           )}
 

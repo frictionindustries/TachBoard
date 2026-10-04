@@ -109,6 +109,26 @@ describe("profile export", () => {
 });
 
 describe("profile import", () => {
+  it("preserves expanded panels in profile export/import for standalone and app tiles", async () => {
+    const pageId = await createPage(1, "Expanded panels");
+    for (const integration of [null, "note", "timer", "videoplayer"]) {
+      const created = await request(app).post("/tiles").send({
+        pageId, type: "app", integration, name: `Expanded ${integration ?? "app"}`,
+        gridX: 0, gridY: 0, gridW: 3, gridH: 3, tileSettings: { openExpanded: true },
+      });
+      expect(created.status).toBe(201);
+    }
+    const exported = await request(app).get("/profile/export");
+    const imported = await request(app).post("/profile/import").set("x-user-id", "2").send({
+      ...exported.body, mode: "merge",
+    });
+    expect(imported.status).toBe(200);
+    const reexported = await request(app).get("/profile/export").set("x-user-id", "2");
+    const page = reexported.body.pages.find((p: { name: string }) => p.name === "Expanded panels");
+    expect(page.tiles).toHaveLength(4);
+    for (const tile of page.tiles) expect(tile.tileSettings.openExpanded).toBe(true);
+  });
+
   it.each(["http://10.0.0.8/actuator/env?", "http://10.0.0.8/#"])(
     "rejects imported service URL %s before any profile writes", async (url) => {
       const beforePages = pageStmts.findAllByUser.all(2);

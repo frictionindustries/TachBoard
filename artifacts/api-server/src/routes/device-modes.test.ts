@@ -254,7 +254,7 @@ describe("page layouts + copy-layout", () => {
     expect(pageRes.body.layoutPreset).toBe("adaptive");
     const copyPageId = pageRes.body.id as number;
 
-    await createTile({ pageId: copyPageId, variant: "fhd-landscape", name: "A" });
+    await createTile({ pageId: copyPageId, variant: "fhd-landscape", name: "A", tileSettings: { openExpanded: true } });
     await createTile({ pageId: copyPageId, variant: "fhd-landscape", name: "B" });
 
     const layouts = await request(app)
@@ -281,6 +281,7 @@ describe("page layouts + copy-layout", () => {
       .get(`/tiles?pageId=${copyPageId}&deviceModeId=${defaultModeId}&variant=compact-portrait`)
       .set("x-user-id", "1");
     expect(target.body).toHaveLength(2);
+    expect(target.body.find((tile: { name: string }) => tile.name === "A").tileSettings.openExpanded).toBe(true);
 
     // Copying again into the now-populated target must fail.
     const again = await request(app)

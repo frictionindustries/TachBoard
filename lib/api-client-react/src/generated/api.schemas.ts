@@ -535,6 +535,11 @@ export type TileSettings = {
      */
   aiModel?: string | null;
   /**
+     * Opens content tiles in a large panel when activated on a locked dashboard. Absent, null, or false preserves the existing behavior. Layout-only spacers and section dividers ignore this option.
+     * @nullable
+     */
+  openExpanded?: boolean | null;
+  /**
      * When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).
      * @nullable
      */

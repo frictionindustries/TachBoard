@@ -42,7 +42,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useHealthAlerts } from "@/hooks/use-health-alerts";
 import AppTile from "@/components/tiles/AppTile";
-import IntegrationTile from "@/components/tiles/IntegrationTile";
+import IntegrationTile, { INTEGRATION_LABELS } from "@/components/tiles/IntegrationTile";
+import { TileExpansionHost, TileExpansionProvider } from "@/components/tiles/expansion";
 import NoteTile from "@/components/tiles/NoteTile";
 import TimerTile from "@/components/tiles/TimerTile";
 import TamagotchiTile from "@/components/tiles/TamagotchiTile";
@@ -1820,6 +1821,10 @@ export default function Dashboard() {
             )}
             {gridWidth !== null && (() => {
             const gridEl = (
+            <TileExpansionProvider
+              resetKey={`${activePageId}:${activeDeviceModeId}:${activeVariant ?? "base"}:${editMode ? "edit" : "locked"}`}
+              validIds={tiles.map((t) => t.id)}
+            >
             <Grid
               className={`layout ${editMode ? "grid-editing" : "grid-locked"}`}
               layout={layout}
@@ -1881,17 +1886,39 @@ export default function Dashboard() {
                       </button>
                     </div>
                   )}
-                  {renderTileContent(
-                    tile,
-                    tile.integration
-                      ? statusByService.get(INTEGRATION_SERVICE[tile.integration])
-                      : undefined,
-                    editMode,
+                  {isLayoutTile ? (
+                    renderTileContent(tile, undefined, editMode)
+                  ) : (
+                    // Always the same host element whether or not expansion
+                    // is enabled, so toggling edit mode / the setting never
+                    // remounts the widget.
+                    <TileExpansionHost
+                      tileId={tile.id}
+                      enabled={!editMode && tile.tileSettings?.openExpanded === true}
+                      title={
+                        tile.name ||
+                        (tile.integration ? INTEGRATION_LABELS[tile.integration] : undefined) ||
+                        "Tile"
+                      }
+                      url={tile.url}
+                      scrollable={Boolean(tile.tileSettings?.scrollable)}
+                      integration={tile.integration}
+                      hasImage={Boolean(tile.imageUrl)}
+                    >
+                      {renderTileContent(
+                        tile,
+                        tile.integration
+                          ? statusByService.get(INTEGRATION_SERVICE[tile.integration])
+                          : undefined,
+                        editMode,
+                      )}
+                    </TileExpansionHost>
                   )}
                 </div>
                 );
               })}
             </Grid>
+            </TileExpansionProvider>
             );
 
             // Auto (responsive) pages render the grid directly, as before.

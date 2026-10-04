@@ -36,6 +36,7 @@ import {
 import { resolveEnabledMetrics, tileDensity, type TileDensity } from "./metrics";
 import { resolveImageStyle } from "./imageStyle";
 import { openTileUrl } from "@/lib/utils";
+import { useTileExpansion } from "./expansion";
 
 export const INTEGRATION_LABELS: Record<string, string> = {
   [TileIntegration.truenas]: "TrueNAS",
@@ -234,11 +235,18 @@ export default function IntegrationTile({ tile, status, editMode = false }: Inte
   // image fills it (the image becomes the icon). Without an image the header
   // would be an empty colored bar — an awkward gap — so we drop it and float
   // the status dot / open-link affordance over the widget body instead.
-  const showHeader = !tile.hideTitle || hasImage;
+  const expansion = useTileExpansion();
+  const showHeader = !expansion.expanded && (!tile.hideTitle || hasImage);
 
   // When enabled, the live-status body scrolls instead of clipping overflowing
   // content. The header (and its image background) stay fixed and clipped.
-  const scrollable = Boolean(tile.tileSettings?.scrollable);
+  // Expanded presentation is transient: it lifts reveal budgets (as if
+  // scrollable) without touching the persisted setting.
+  const scrollable = Boolean(tile.tileSettings?.scrollable) || expansion.expanded;
+  const onHeaderClick = () => {
+    if (expansion.canExpand && !expansion.expanded) expansion.requestExpand();
+    else openTileUrl(tile.url);
+  };
 
   // Density from the measured body (or grid-seeded for first paint). The seed
   // needs to know whether the header occupies space; `scrollable` makes reveal
@@ -246,15 +254,23 @@ export default function IntegrationTile({ tile, status, editMode = false }: Inte
   const density = tileDensity(tile.gridW, tile.gridH, measured, showHeader, scrollable);
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
+    <div className={`w-full ${expansion.expanded ? "h-auto" : "h-full"} flex flex-col overflow-hidden`}>
       {/* Styled header carrying the tile's custom name, background and image. */}
       {showHeader && (
         <div
           className="relative h-11 flex-shrink-0 overflow-hidden flex items-center px-3 gap-1.5 group/header select-none"
           style={{ background: bg }}
-          onClick={() => openTileUrl(tile.url)}
-          role={tile.url ? "link" : undefined}
-          title={tile.url || undefined}
+          onClick={onHeaderClick}
+          role={expansion.canExpand && !expansion.expanded ? "button" : tile.url ? "link" : undefined}
+          tabIndex={expansion.canExpand && !expansion.expanded ? 0 : undefined}
+          onKeyDown={(e) => {
+            if (expansion.canExpand && !expansion.expanded && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              expansion.requestExpand();
+            }
+          }}
+          aria-label={expansion.canExpand && !expansion.expanded ? `Expand ${label}` : undefined}
+          title={expansion.canExpand && !expansion.expanded ? "Open in expanded panel" : tile.url || undefined}
           // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         >
           {hasImage && (
@@ -300,7 +316,7 @@ export default function IntegrationTile({ tile, status, editMode = false }: Inte
         {!showHeader && (statusDot || tile.url) && (
           <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1.5">
             {statusDot}
-            {tile.url && (
+            {tile.url && !expansion.expanded && (
               <button
                 type="button"
                 onClick={() => openTileUrl(tile.url)}
@@ -313,17 +329,13 @@ export default function IntegrationTile({ tile, status, editMode = false }: Inte
             )}
           </div>
         )}
-        {scrollable ? (
-          // The widget roots are `h-full`; inside this auto-height wrapper that
-          // resolves to their content height, so they grow past the body (which
-          // scrolls) instead of pinning to it and clipping. `min-h-full` keeps a
-          // short widget filling the body as before.
-          <div className="min-h-full">
-            {renderStatusView(integration, { enabled, density, tileSettings: tile.tileSettings, integration, editMode })}
-          </div>
-        ) : (
-          renderStatusView(integration, { enabled, density, tileSettings: tile.tileSettings, integration, editMode })
-        )}
+        {/* One stable wrapper in every mode (never a conditional wrapper), so
+            switching scrollable/expanded never remounts the widget. When
+            scrolling, `h-full` roots resolve to content height and grow past
+            the body; otherwise the wrapper pins to the body like before. */}
+        <div className={expansion.expanded ? "min-h-0" : scrollable ? "min-h-full" : "h-full"}>
+          {renderStatusView(integration, { enabled, density, tileSettings: tile.tileSettings, integration, editMode })}
+        </div>
       </div>
     </div>
   );

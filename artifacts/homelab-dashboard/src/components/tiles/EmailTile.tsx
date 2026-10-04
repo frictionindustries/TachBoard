@@ -340,7 +340,8 @@ export default function EmailTile({ density, tileSettings }: WidgetProps) {
     );
   }
 
-  const detailed = density.bodyHeight >= 150;
+  // Scrollable / expanded bodies always show full row detail.
+  const detailed = density.scrollable || density.bodyHeight >= 150;
   const columns = tileColumns(density.bodyWidth);
   // Only bother labeling messages per-account when more than one is in play.
   const accountCount = new Set(data.messages.map((m) => m.account)).size;

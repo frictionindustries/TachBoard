@@ -205,7 +205,7 @@ export default function WeatherTile({ density, tileSettings }: WidgetProps) {
   // The icon/temperature and city name always show; the extra "feels like / high
   // · low" line is revealed only when the measured body has room for it, so the
   // tile fills its space without ever overflowing.
-  const showDetail = density.bodyHeight >= 122;
+  const showDetail = density.scrollable || density.bodyHeight >= 122;
 
   const upcoming = data.forecast.slice(1);
 
@@ -236,16 +236,17 @@ export default function WeatherTile({ density, tileSettings }: WidgetProps) {
   // Col mode: the number of days shown adapts to the tile's width (3–5 days),
   // and the strip is only revealed when there's enough height to fit it.
   const fitDays = Math.floor((density.bodyWidth - 8) / 54);
-  const numColDays = Math.max(3, Math.min(5, fitDays));
+  // Scrollable/expanded: every forecast day the API returned.
+  const numColDays = density.scrollable ? upcoming.length : Math.max(3, Math.min(5, fitDays));
 
   // Row/list modes: days stack vertically, so the count is height-driven and
   // capped at the API's available days. List mode reserves ~150px for the
   // current-conditions block above the list.
-  const numRowDays = Math.min(
+  const numRowDays = density.scrollable ? upcoming.length : Math.min(
     upcoming.length,
     Math.max(2, Math.floor((density.bodyHeight - 20) / 26)),
   );
-  const numListDays = Math.min(
+  const numListDays = density.scrollable ? upcoming.length : Math.min(
     upcoming.length,
     Math.max(3, Math.floor((density.bodyHeight - 150) / 30)),
   );
@@ -256,7 +257,7 @@ export default function WeatherTile({ density, tileSettings }: WidgetProps) {
   );
   const showForecast =
     layoutMode === "col"
-      ? density.bodyHeight >= 210 && density.bodyWidth >= 200 && days.length >= 3
+      ? (density.scrollable || (density.bodyHeight >= 210 && density.bodyWidth >= 200)) && days.length >= 3
       : days.length >= 2;
 
   const current = (
@@ -367,7 +368,7 @@ export default function WeatherTile({ density, tileSettings }: WidgetProps) {
       {layoutMode === "col" && showForecast && (
         <div
           data-testid="weather-forecast-col"
-          className="flex gap-1 pt-2 mt-1 border-t border-border/50"
+          className={`flex gap-1 pt-2 mt-1 border-t border-border/50 ${density.scrollable ? "flex-wrap" : ""}`}
         >
           {days.map((day) => {
             const { Icon: DayIcon, label: dayLabel } = weatherInfo(day.code, true);

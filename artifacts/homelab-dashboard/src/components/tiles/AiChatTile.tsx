@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Tile } from "@workspace/api-client-react";
 import { Bot, Send, Square, Eraser, Loader2 } from "lucide-react";
 import { MarkdownContent } from "../../lib/markdown";
+import { useTileExpansion } from "./expansion";
 
 // Per-tile conversation history lives in localStorage under the app's legacy
 // key prefix (kept for back-compat) so it survives refreshes without touching
@@ -159,6 +160,7 @@ interface AiChatTileProps {
 // The AI Chat tile: a scrollable conversation backed by a saved AI account
 // (selected in the tile editor). History persists per tile in localStorage.
 export default function AiChatTile({ tile, editMode }: AiChatTileProps) {
+  const { expanded } = useTileExpansion();
   const accountId = tile.tileSettings?.aiAccountId ?? null;
   const model = tile.tileSettings?.aiModel ?? null;
   const configured = Boolean(accountId);
@@ -275,11 +277,11 @@ export default function AiChatTile({ tile, editMode }: AiChatTileProps) {
   const canClear = messages.length > 0;
 
   return (
-    <div className="w-full h-full flex flex-col bg-card text-card-foreground overflow-hidden">
+    <div className={`w-full ${expanded ? "h-auto" : "h-full"} flex flex-col bg-card text-card-foreground overflow-hidden`}>
       {/* Compact header: identity + clear-conversation action. */}
       <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-border flex-shrink-0">
         <Bot className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-        <span className="text-xs font-bold tracking-wide truncate">
+        <span className={`text-xs font-bold tracking-wide truncate ${expanded ? "sr-only" : ""}`}>
           {tile.name || "AI Chat"}
         </span>
         {!configured && (
@@ -303,7 +305,7 @@ export default function AiChatTile({ tile, editMode }: AiChatTileProps) {
       </div>
 
       {/* Conversation. */}
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-2.5 py-2 space-y-2">
+      <div ref={scrollRef} className={`${expanded ? "max-h-[min(400px,50dvh)]" : "flex-1"} min-h-0 overflow-y-auto px-2.5 py-2 space-y-2`}>
         {shown.length === 0 && (
           <p className="text-xs text-muted-foreground pt-2">
             Ask anything — the conversation stays on this tile.

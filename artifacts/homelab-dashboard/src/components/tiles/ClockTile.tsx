@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import type { WidgetProps } from "./IntegrationTile";
+import { useTileExpansion } from "./expansion";
 
 // A live local-time widget. Runs entirely in the browser (no network calls),
 // ticking once a second. Format/seconds/date come from the tile's settings and
 // the type scales to fit the tile via CSS container query units.
 export default function ClockTile({ tileSettings }: WidgetProps) {
+  const { expanded } = useTileExpansion();
   const [now, setNow] = useState<Date>(() => new Date());
 
   useEffect(() => {
@@ -40,19 +42,19 @@ export default function ClockTile({ tileSettings }: WidgetProps) {
 
   return (
     <div
-      className="w-full h-full flex flex-col items-center justify-center gap-[2cqh] px-2 overflow-hidden text-foreground"
-      style={{ containerType: "size" }}
+      className={`w-full ${expanded ? "py-5 gap-3" : "h-full gap-[2cqh]"} flex flex-col items-center justify-center px-2 overflow-hidden text-foreground`}
+      style={{ containerType: expanded ? "inline-size" : "size" }}
     >
       <span
         className="font-bold leading-none tabular-nums tracking-tight whitespace-nowrap"
-        style={{ fontSize: timeFontSize }}
+        style={{ fontSize: expanded ? `min(${timeWidthCqw.toFixed(1)}cqw, 64px)` : timeFontSize }}
       >
         {timeStr}
       </span>
       {showDate && (
         <span
           className="leading-none text-muted-foreground whitespace-nowrap"
-          style={{ fontSize: dateFontSize }}
+          style={{ fontSize: expanded ? "min(5cqw, 18px)" : dateFontSize }}
         >
           {dateStr}
         </span>

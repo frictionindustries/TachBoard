@@ -111,7 +111,8 @@ export default function NewsTile({ density, tileSettings }: WidgetProps) {
   // grows, titles get a second line plus a source/timestamp meta line. The full
   // headline list is rendered into a vertically scrollable body, so a taller
   // tile reveals more headlines at once while a short one stays scrollable.
-  const detailed = density.bodyHeight >= 150;
+  // Scrollable / expanded bodies always show full row detail.
+  const detailed = density.scrollable || density.bodyHeight >= 150;
   const columns = tileColumns(density.bodyWidth);
 
   return (

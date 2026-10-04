@@ -3165,6 +3165,12 @@ components:
             Optional per-tile model override for the AI Chat tile. Null or
             absent uses the account's default model.
           type: ["string", "null"]
+        openExpanded:
+          description: >-
+            Opens content tiles in a large panel when activated on a locked
+            dashboard. Absent, null, or false preserves the existing behavior.
+            Layout-only spacers and section dividers ignore this option.
+          type: ["boolean", "null"]
         scrollable:
           description: >-
             When true, the tile body shows a scrollbar when its content

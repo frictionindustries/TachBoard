@@ -255,7 +255,8 @@ function StreamAudioPlayer({ enabled, density, tileSettings }: WidgetProps) {
   // Cap the queue at 20 rows so a huge queue never renders hundreds of items
   // (which slows the page) and the "Up Next" list stays a manageable preview.
   const queueRows = enabled.has("queue")
-    ? Math.min(budget.list(SECTION_PX, MEDIA_ROW_PX, restQueue.length), 20)
+    ? // The expanded/scrollable body shows the whole queue.
+      Math.min(budget.list(SECTION_PX, MEDIA_ROW_PX, restQueue.length), density.scrollable ? restQueue.length : 20)
     : 0;
 
   const startPlayback = (startId: string) => {

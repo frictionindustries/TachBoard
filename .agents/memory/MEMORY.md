@@ -69,3 +69,4 @@
 - [Authentication resource policy](auth-resource-policy.md) — harden existing flows rather than add approval features; proxy-aware identity requires a verified trust boundary.
 - [Homelab outbound authorization](homelab-outbound-authorization.md) — earliest account retains LAN HTTP access; other or missing identities stay public-only, including streaming and scheduled work.
 - [GitHub workflow push authorization](git-push-auth.md) — confirmed CLI credential workaround when Replit OAuth lacks workflow scope; saved commands in GIT-COMMANDS.md.
+- [Expanded panel lifecycle](expanded-panel-lifecycle.md) — preserve connected media DOM, not just React state; nested portals must stay above the promoted tile.

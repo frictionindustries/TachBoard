@@ -65,6 +65,7 @@ interface TileSettings {
   audioSearch?: boolean | null;
   audioBrowse?: boolean | null;
   audioPlaylists?: boolean | null;
+  openExpanded?: boolean | null;
   scrollable?: boolean | null;
   hideStatusDot?: boolean | null;
   noteBody?: string | null;
@@ -379,6 +380,11 @@ function pickTileSettings(obj: Record<string, unknown>): TileSettings {
     result.audioPlaylists = obj["audioPlaylists"];
   } else if (obj["audioPlaylists"] === null) {
     result.audioPlaylists = null;
+  }
+  if (typeof obj["openExpanded"] === "boolean") {
+    result.openExpanded = obj["openExpanded"];
+  } else if (obj["openExpanded"] === null) {
+    result.openExpanded = null;
   }
   if (typeof obj["scrollable"] === "boolean") {
     result.scrollable = obj["scrollable"];

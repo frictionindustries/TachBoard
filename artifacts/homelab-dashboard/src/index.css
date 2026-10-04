@@ -851,3 +851,167 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* ============================================================
+ * Expanded tile panels (see components/tiles/expansion.tsx). The host is an
+ * always-mounted popover="manual" element: compact it fills its grid cell; when
+ * promoted to the top layer it becomes a viewport-bounded themed panel. Same
+ * DOM node in both states, so live media/iframes are never reloaded.
+ * ============================================================ */
+.tile-expand-host {
+  position: absolute;
+  inset: 0;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  color: inherit;
+}
+.tile-expand-frame {
+  position: absolute;
+  inset: 0;
+}
+.tile-expand-body {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+/* Expanded: the host is a transparent full-viewport top-layer element that
+   paints the dim backdrop itself (clicks outside the frame hit the host), and
+   the frame is the viewport-bounded panel. */
+.tile-expand-host[data-expanded="true"] {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  background: hsl(var(--background) / 0.72);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.tile-expand-host::backdrop { background: transparent; }
+.tile-expand-host[data-expanded="true"] > .tile-expand-frame {
+  position: relative;
+  inset: auto;
+  margin: 0;
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--app-shadow-2xl);
+  animation: tile-expand-in 160ms ease-out;
+}
+.tile-expand-host[data-expanded="true"] > .tile-expand-frame > .tile-expand-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+/* Ordinary status/list widgets use their intrinsic content height, including
+   loading/empty states. Only visual surfaces have an explicit working area. */
+.tile-expand-host[data-expanded="true"][data-presentation="media"] > .tile-expand-frame {
+  width: min(960px, 100%);
+}
+.tile-expand-host[data-expanded="true"][data-presentation="media"] .tile-expand-body {
+  flex: 0 1 auto;
+  height: min(540px, calc((100vw - 2rem) * 0.5625), calc(100dvh - 6rem));
+}
+.tile-expand-host[data-expanded="true"][data-presentation="editor"] .tile-expand-body {
+  flex: 0 1 auto;
+  height: min(440px, calc(100dvh - 6rem));
+}
+.tile-expand-host[data-expanded="true"][data-presentation="instrument"] > .tile-expand-frame {
+  width: min(420px, 100%);
+}
+.tile-expand-host[data-expanded="true"][data-presentation="instrument"] .tile-expand-body {
+  flex: 0 1 auto;
+  height: min(300px, calc(100dvh - 6rem));
+}
+.tile-expand-host[data-expanded="true"][data-presentation="app"] > .tile-expand-frame {
+  width: min(400px, 100%);
+}
+/* A text-only app tile has no additional content beyond the panel title/link. */
+.tile-expand-host[data-expanded="true"][data-presentation="app"] .tile-expand-body {
+  height: 0;
+  flex: none;
+}
+/* Chat is dispatched through IntegrationTile but needs a definite editor area. */
+.tile-expand-host[data-expanded="true"][data-presentation="editor"] .tile-expand-body > div,
+.tile-expand-host[data-expanded="true"][data-presentation="editor"] .tile-expand-body > div > div > .min-h-0,
+.tile-expand-host[data-expanded="true"][data-presentation="media"] .tile-expand-body > div,
+.tile-expand-host[data-expanded="true"][data-presentation="media"] .tile-expand-body > div > div > .min-h-0,
+.tile-expand-host[data-expanded="true"][data-presentation="instrument"] .tile-expand-body > div,
+.tile-expand-host[data-expanded="true"][data-presentation="instrument"] .tile-expand-body > div > div > .min-h-0 {
+  height: 100%;
+}
+.tile-expand-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.5rem 0.375rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.tile-expand-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  min-width: 2rem;
+  justify-content: center;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius);
+  color: hsl(var(--muted-foreground));
+  transition: color 120ms, background-color 120ms;
+}
+.tile-expand-action:hover { color: hsl(var(--foreground)); background: hsl(var(--muted)); }
+.tile-expand-action:focus-visible,
+.tile-expand-trigger:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.tile-expand-trigger {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  z-index: 15;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background) / 0.85);
+  color: hsl(var(--muted-foreground));
+  opacity: 0;
+  transition: opacity 120ms, color 120ms;
+}
+.tile-expand-host:hover .tile-expand-trigger,
+.tile-expand-trigger:focus-visible { opacity: 1; }
+.tile-expand-trigger:hover { color: hsl(var(--primary)); }
+@media (hover: none) { .tile-expand-trigger { opacity: 0.8; } }
+@media (max-width: 640px) {
+  .tile-expand-host[data-expanded="true"] { padding: 0.5rem; }
+  .tile-expand-host[data-expanded="true"] > .tile-expand-frame { max-height: calc(100dvh - 1rem); }
+}
+@keyframes tile-expand-in {
+  /* Opacity only: a transform would make the frame the containing block for
+     nested fixed-position poppers/dialogs during the animation. */
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile-expand-host[data-expanded="true"] > .tile-expand-frame { animation: none; }
+}

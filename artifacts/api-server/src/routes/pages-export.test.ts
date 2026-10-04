@@ -82,7 +82,7 @@ describe("page export/import", () => {
         name: "Torrents",
         hideTitle: true,
         metrics: ["downloading", "seeding"],
-        tileSettings: { categoryFilter: ["movies"], groupByCategory: true },
+        tileSettings: { categoryFilter: ["movies"], groupByCategory: true, openExpanded: true },
       });
     expect(widget.status).toBe(201);
 
@@ -143,7 +143,7 @@ describe("page export/import", () => {
       gridH: 8,
       hideTitle: true,
       metrics: ["downloading", "seeding"],
-      tileSettings: { categoryFilter: ["movies"], groupByCategory: true },
+      tileSettings: { categoryFilter: ["movies"], groupByCategory: true, openExpanded: true },
     });
     // Identity fields belong to the new page/user, not the originals.
     expect(torrents.pageId).toBe(newPageId);

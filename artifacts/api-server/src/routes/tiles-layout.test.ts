@@ -50,6 +50,26 @@ afterAll(() => {
 });
 
 describe("PUT /tiles/layout", () => {
+  it.each([undefined, false, true, null])("round-trips expanded setting %s through edits, reads and layout saves", async (openExpanded) => {
+    const created = await request(app).post("/tiles").send({
+      type: "app", name: "Expandable", gridX: 0, gridY: 0, gridW: 2, gridH: 2,
+      tileSettings: { openExpanded, scrollable: false },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.tileSettings.openExpanded).toBe(openExpanded);
+    const id = created.body.id;
+    const saved = await request(app).put("/tiles/layout").send({
+      tiles: [{ id, gridX: 2, gridY: 1, gridW: 4, gridH: 3 }],
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.find((t: { id: number }) => t.id === id).tileSettings.openExpanded).toBe(openExpanded);
+    const read = await request(app).get("/tiles");
+    expect(read.body.find((t: { id: number }) => t.id === id).tileSettings.openExpanded).toBe(openExpanded);
+    const updated = await request(app).put(`/tiles/${id}`).send({ tileSettings: { openExpanded: true } });
+    expect(updated.status).toBe(200);
+    expect(updated.body.tileSettings.openExpanded).toBe(true);
+  });
+
   it("preserves integration and metrics after a resize/layout save", async () => {
     // Create an integration tile with an explicit metric subset.
     const created = await request(app)
