@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Coverage for the Picture Frame photo slideshow tile.

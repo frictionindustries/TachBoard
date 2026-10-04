@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Coverage for the ErsatzTV status tile's embedded TV guide + channel remote.

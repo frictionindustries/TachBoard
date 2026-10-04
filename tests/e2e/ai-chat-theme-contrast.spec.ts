@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // AI Chat Markdown legibility across dashboard themes.

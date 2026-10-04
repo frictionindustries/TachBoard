@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // AI Chat tile: Markdown rendering inside a real tile.

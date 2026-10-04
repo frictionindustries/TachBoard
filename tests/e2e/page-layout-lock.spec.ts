@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Coverage for the per-page fixed scale lock (task #235).

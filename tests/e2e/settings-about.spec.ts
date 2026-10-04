@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import type { VersionInfo } from "@workspace/api-client-react";
 
 // Older version responses may omit releaseNotes altogether.

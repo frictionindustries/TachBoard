@@ -5,6 +5,10 @@ description: How to run the checked-in Playwright e2e suite on Replit's NixOS en
 
 # Playwright e2e suite
 
+Server-targeting instructions below are historical and superseded by
+[E2E account isolation](e2e-data-isolation.md). Do not set E2E_BASE_URL or use
+the shared development database for checked-in browser regression tests.
+
 Root config `playwright.config.ts` + specs under `tests/e2e/`; run with `pnpm run test:e2e`.
 
 ## Browser libs on NixOS

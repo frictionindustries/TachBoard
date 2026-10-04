@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Coverage for the Find-videos browser's search box: typing filters the
