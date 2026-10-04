@@ -28,7 +28,7 @@ const NOTES = [
 
 // Exercise the real Settings page and API query, without creating accounts or
 // depending on GitHub's latest release or the host's saved connections.
-async function openSettings(page: Page, version: VersionResponse) {
+async function openSettings(page: Page, version: VersionResponse | null) {
   await page.addInitScript(() => localStorage.setItem("token", "about-test-token"));
   await page.route("**/api/auth/me", (route) =>
     route.fulfill({ json: { id: 1, username: "about-test" } }),
@@ -42,12 +42,27 @@ async function openSettings(page: Page, version: VersionResponse) {
   );
   await page.route("**/api/version", (route) => {
     expect(route.request().method()).toBe("GET");
-    return route.fulfill({ json: version });
+    return version === null
+      ? route.fulfill({ status: 503, json: { error: "Version check unavailable" } })
+      : route.fulfill({ json: version });
   });
+  const versionResponse = page.waitForResponse("**/api/version");
   await page.goto("/settings");
+  const response = await versionResponse;
+  expect(response.status()).toBe(version === null ? 503 : 200);
+  await response.finished();
+  await expect(page.getByRole("banner").getByText("Settings", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dashboard", exact: true })).toBeEnabled();
   const build = page.getByTestId("text-app-version");
-  await expect(build).toHaveText("Version 1.0.0");
+  await expect(build).toHaveText(version === null ? "Version …" : "Version 1.0.0");
   await build.scrollIntoViewIfNeeded();
+  await expect(build).toBeVisible();
+  await expect(build.locator("..").getByText("Tachboard", { exact: true })).toBeVisible();
+  if (version?.checkEnabled === false) {
+    await expect(page.getByText("Update checks are disabled.", { exact: true })).toBeVisible();
+  } else {
+    await expect(page.getByText("Update checks are disabled.", { exact: true })).toHaveCount(0);
+  }
 }
 
 test("About update link and What's new expand sanitized Markdown and collapse again", async ({ page }) => {
@@ -118,6 +133,27 @@ test("About hides the update link and notes when already up to date", async ({ p
     updateAvailable: false,
     releaseNotes: NOTES,
   });
+  await expect(page.getByTestId("link-update-available")).toHaveCount(0);
+  await expect(page.getByTestId("button-toggle-release-notes")).toHaveCount(0);
+  await expect(page.getByTestId("release-notes")).toHaveCount(0);
+});
+
+test("About keeps Settings and the footer usable when update checks are disabled", async ({ page }) => {
+  await openSettings(page, {
+    currentVersion: "1.0.0",
+    latestVersion: null,
+    updateAvailable: false,
+    checkEnabled: false,
+    releaseUrl: null,
+    releaseNotes: null,
+  });
+  await expect(page.getByTestId("link-update-available")).toHaveCount(0);
+  await expect(page.getByTestId("button-toggle-release-notes")).toHaveCount(0);
+  await expect(page.getByTestId("release-notes")).toHaveCount(0);
+});
+
+test("About keeps Settings and the footer usable when the version request fails", async ({ page }) => {
+  await openSettings(page, null);
   await expect(page.getByTestId("link-update-available")).toHaveCount(0);
   await expect(page.getByTestId("button-toggle-release-notes")).toHaveCount(0);
   await expect(page.getByTestId("release-notes")).toHaveCount(0);
