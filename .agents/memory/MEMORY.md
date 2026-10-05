@@ -71,3 +71,4 @@
 - [Homelab outbound authorization](homelab-outbound-authorization.md) — earliest account retains LAN HTTP access; other or missing identities stay public-only, including streaming and scheduled work.
 - [GitHub workflow push authorization](git-push-auth.md) — confirmed CLI credential workaround when Replit OAuth lacks workflow scope; saved commands in GIT-COMMANDS.md.
 - [Expanded panel lifecycle](expanded-panel-lifecycle.md) — preserve connected media DOM, not just React state; nested portals must stay above the promoted tile.
+- [Self-contained Pi edition](pi-edition-scope.md) — Pi must host and display Tachboard without TrueNAS; separate download, network first, USB eventually.
