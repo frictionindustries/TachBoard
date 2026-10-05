@@ -54,6 +54,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import AppearanceSettings from "@/components/AppearanceSettings";
+import LauncherSettingsCard from "@/components/LauncherSettingsCard";
 import {
   Select,
   SelectContent,
@@ -3043,6 +3044,9 @@ export default function Settings() {
               <ImapAccountsCard />
               <CalDavAccountsCard />
               <AiAccountsCard />
+            </CategorySection>
+            <CategorySection title="Desktop">
+              <LauncherSettingsCard />
             </CategorySection>
           </div>
         )}

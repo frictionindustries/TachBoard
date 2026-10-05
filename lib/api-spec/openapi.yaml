@@ -20,6 +20,8 @@ tags:
     description: Live data widgets
   - name: connections
     description: Service connection settings
+  - name: launcher
+    description: Desktop launcher companion
 paths:
   /healthz:
     get:
@@ -2672,8 +2674,295 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /launcher/instance:
+    get:
+      operationId: getLauncherInstance
+      tags: [launcher]
+      summary: Non-secret server identity over trusted transport
+      responses:
+        "200":
+          description: Persistent identity; clients must pin this at pairing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [instanceId]
+                properties:
+                  instanceId: { type: string }
+  /launcher/pairings/inspect:
+    post:
+      operationId: inspectLauncherPairing
+      tags: [launcher]
+      summary: Inspect a short-lived invitation before explicit local approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LauncherInvitation"
+      responses:
+        "200":
+          description: Owner and instance to verify locally
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [instanceId, owner, expiresAt]
+                properties:
+                  instanceId: { type: string }
+                  owner: { type: string }
+                  expiresAt: { type: number, description: Epoch milliseconds }
+        "410": { description: Invitation expired or invalid }
+        "429": { description: Global attempt limit reached }
+  /launcher/pairings/approve:
+    post:
+      operationId: approveLauncherPairing
+      tags: [launcher]
+      summary: Consume invitation after local approval; never call from dashboard UI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LauncherLocalApproval"
+      responses:
+        "200":
+          description: One-time credential response; store only in the native OS vault
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [instanceId, deviceId, token]
+                properties:
+                  instanceId: { type: string }
+                  deviceId: { type: string }
+                  token: { type: string }
+        "410": { description: Invitation expired or already consumed }
+        "429": { description: Global attempt limit reached }
+  /launcher/companion/{operation}:
+    post:
+      operationId: launcherCompanionOperation
+      tags: [launcher]
+      summary: Outbound desktop session, polling, one-shot authorization or failure report
+      description: >-
+        Authorization is a device token, NOT a dashboard JWT. Hello requires the
+        local action catalog and discards old pending work. Poll requires session
+        and catalog. Accept and failed require session and request id. An accept
+        response is a one-use grant; response loss must never cause a launch retry.
+        All requests require trusted transport. See packaging/desktop/README.md.
+      security:
+        - launcherDeviceAuth: []
+      parameters:
+        - name: operation
+          in: path
+          required: true
+          schema: { type: string, enum: [hello, poll, accept, failed] }
+        - name: X-Launcher-Instance
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LauncherCompanionMessage"
+      responses:
+        "200":
+          description: Operation-specific response (hello session; poll commands; accept grant; failed acknowledgement)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instanceId: { type: string }
+                  session: { type: string }
+                  serverTime: { type: number }
+                  commands:
+                    type: array
+                    items: { $ref: "#/components/schemas/LauncherGrant" }
+                  id: { type: string }
+                  actionId: { type: string }
+                  expiresAt: { type: number }
+                  ok: { type: boolean }
+        "401": { description: Revoked or unknown computer }
+        "403": { description: Wrong instance or owner }
+        "409": { description: Expired session or already consumed request }
+        "410": { description: Removed action }
+        "426": { description: Trusted encrypted transport required }
+
+  /launcher/devices:
+    get:
+      operationId: getLauncherDevices
+      tags: [launcher]
+      summary: List paired desktop launcher devices and their allowed actions (owner only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Launcher devices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LauncherDeviceList"
+        "403":
+          description: Not the owner account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /launcher/pairings:
+    post:
+      operationId: createLauncherPairing
+      tags: [launcher]
+      summary: Start a new desktop companion pairing and get a one-time code
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LauncherPairingInput"
+      responses:
+        "200":
+          description: Pairing code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LauncherPairing"
+        "403":
+          description: Not the owner account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /launcher/devices/{id}:
+    put:
+      operationId: renameLauncherDevice
+      tags: [launcher]
+      summary: Rename a paired desktop launcher device
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LauncherDeviceRename"
+      responses:
+        "200":
+          description: Renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LauncherOk"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: revokeLauncherDevice
+      tags: [launcher]
+      summary: Revoke a paired desktop launcher device (row is retained as revoked)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LauncherOk"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /launcher/commands:
+    post:
+      operationId: createLauncherCommand
+      tags: [launcher]
+      summary: Queue a launch command for a paired device (idempotent on requestId)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LauncherCommandInput"
+      responses:
+        "200":
+          description: Command
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LauncherCommand"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not the owner account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /launcher/commands/{id}:
+    get:
+      operationId: getLauncherCommand
+      tags: [launcher]
+      summary: Get the status of a launch command
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Command
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LauncherCommand"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
+    launcherDeviceAuth:
+      type: http
+      scheme: bearer
+      description: Instance-scoped companion token; never a dashboard JWT
     bearerAuth:
       type: http
       scheme: bearer
@@ -2705,6 +2994,110 @@ components:
         checkEnabled:
           type: boolean
 
+    LauncherLocalApproval:
+      type: object
+      required: [code, instanceId, approved, name, actions]
+      properties:
+        code: { type: string, maxLength: 64 }
+        instanceId: { type: string }
+        approved: { type: boolean, enum: [true] }
+        name: { type: string, maxLength: 100 }
+        actions:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/LauncherAction" }
+    LauncherCompanionMessage:
+      type: object
+      properties:
+        session: { type: string }
+        id: { type: string }
+        actions:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/LauncherAction" }
+    LauncherInvitation:
+      type: object
+      required: [code, instanceId]
+      properties:
+        code: { type: string, maxLength: 64 }
+        instanceId: { type: string }
+    LauncherGrant:
+      type: object
+      required: [id, actionId, expiresAt]
+      properties:
+        id: { type: string }
+        actionId: { type: string }
+        expiresAt: { type: number, description: Epoch milliseconds }
+    LauncherAction:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    LauncherDevice:
+      type: object
+      required: [id, name, online, revoked, actions]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        online: { type: boolean }
+        revoked: { type: boolean }
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/LauncherAction"
+    LauncherDeviceList:
+      type: object
+      required: [instanceId, devices]
+      properties:
+        instanceId: { type: string }
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/LauncherDevice"
+    LauncherPairingInput:
+      type: object
+      properties: {}
+    LauncherPairing:
+      type: object
+      required: [code, instanceId, expiresAt, owner]
+      properties:
+        code: { type: string }
+        instanceId: { type: string }
+        expiresAt: { type: number, description: Epoch milliseconds }
+        owner: { type: string }
+    LauncherDeviceRename:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+    LauncherOk:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+    LauncherCommandInput:
+      type: object
+      required: [instanceId, deviceId, actionId, requestId]
+      properties:
+        instanceId: { type: string }
+        deviceId: { type: string }
+        actionId: { type: string }
+        requestId: { type: string, format: uuid }
+    LauncherCommandStatus:
+      type: string
+      enum: [pending, accepted, failed, expired]
+    LauncherCommand:
+      type: object
+      required: [id, status, expiresAt]
+      properties:
+        id: { type: string }
+        status:
+          $ref: "#/components/schemas/LauncherCommandStatus"
+        expiresAt: { type: number, description: Epoch milliseconds }
+        error: { type: string }
     ErrorResponse:
       type: object
       required: [error]
@@ -2770,7 +3163,7 @@ components:
           enum: [app, truenas, media, sonarr, radarr, lidarr, qbittorrent]
         integration:
           type: ["string", "null"]
-          enum: [truenas, media, jellyfin, sonarr, radarr, lidarr, qbittorrent, pihole, nginx-proxy-manager, prowlarr, pterodactyl, tailscale, ersatztv, audioplayer, clock, timer, weather, sports, news, stocks, sleeper, email, calendar, note, spacer, divider, eightball, dice, coinflip, fortune, tamagotchi, bonsai, aquarium, visualizer, pictureframe, videoplayer, aichat, null]
+          enum: [truenas, media, jellyfin, sonarr, radarr, lidarr, qbittorrent, pihole, nginx-proxy-manager, prowlarr, pterodactyl, tailscale, ersatztv, audioplayer, clock, timer, weather, sports, news, stocks, sleeper, email, calendar, note, spacer, divider, eightball, dice, coinflip, fortune, tamagotchi, bonsai, aquarium, visualizer, pictureframe, videoplayer, aichat, desktoplauncher, null]
         gridX:
           type: integer
         gridY:
@@ -2864,7 +3257,7 @@ components:
           enum: [app, truenas, media, sonarr, radarr, lidarr, qbittorrent]
         integration:
           type: ["string", "null"]
-          enum: [truenas, media, jellyfin, sonarr, radarr, lidarr, qbittorrent, pihole, nginx-proxy-manager, prowlarr, pterodactyl, tailscale, ersatztv, audioplayer, clock, timer, weather, sports, news, stocks, sleeper, email, calendar, note, spacer, divider, eightball, dice, coinflip, fortune, tamagotchi, bonsai, aquarium, visualizer, pictureframe, videoplayer, aichat, null]
+          enum: [truenas, media, jellyfin, sonarr, radarr, lidarr, qbittorrent, pihole, nginx-proxy-manager, prowlarr, pterodactyl, tailscale, ersatztv, audioplayer, clock, timer, weather, sports, news, stocks, sleeper, email, calendar, note, spacer, divider, eightball, dice, coinflip, fortune, tamagotchi, bonsai, aquarium, visualizer, pictureframe, videoplayer, aichat, desktoplauncher, null]
         gridX:
           type: integer
         gridY:
@@ -2907,7 +3300,7 @@ components:
       properties:
         integration:
           type: ["string", "null"]
-          enum: [truenas, media, jellyfin, sonarr, radarr, lidarr, qbittorrent, pihole, nginx-proxy-manager, prowlarr, pterodactyl, tailscale, ersatztv, audioplayer, clock, timer, weather, sports, news, stocks, sleeper, email, calendar, note, spacer, divider, eightball, dice, coinflip, fortune, tamagotchi, bonsai, aquarium, visualizer, pictureframe, videoplayer, aichat, null]
+          enum: [truenas, media, jellyfin, sonarr, radarr, lidarr, qbittorrent, pihole, nginx-proxy-manager, prowlarr, pterodactyl, tailscale, ersatztv, audioplayer, clock, timer, weather, sports, news, stocks, sleeper, email, calendar, note, spacer, divider, eightball, dice, coinflip, fortune, tamagotchi, bonsai, aquarium, visualizer, pictureframe, videoplayer, aichat, desktoplauncher, null]
         gridX:
           type: integer
         gridY:
@@ -3191,6 +3584,15 @@ components:
             multi-section view (the default, backward-compatible behavior).
           type: ["string", "null"]
           enum: ["cpuram", "network", "arc", "pools", "disks", "cputemp", null]
+        launcherInstanceId:
+          description: Desktop launcher instance the tile is bound to (desktoplauncher tiles only).
+          type: ["string", "null"]
+        launcherDeviceId:
+          description: Paired desktop launcher device the tile is bound to.
+          type: ["string", "null"]
+        launcherActionId:
+          description: Launcher action (allow-listed app) on the bound device.
+          type: ["string", "null"]
         truenasShowCpuCores:
           description: >-
             When true (or absent, the default), the dedicated CPU-temperature

@@ -29,6 +29,9 @@ function serializeMetrics(value: unknown): string | null {
 // category filter, but the column is a generic JSON object so future
 // integrations can stash their own keys here.
 interface TileSettings {
+  launcherInstanceId?: string | null;
+  launcherDeviceId?: string | null;
+  launcherActionId?: string | null;
   categoryFilter?: string[] | null;
   groupByCategory?: boolean | null;
   clockFormat?: "12" | "24" | null;
@@ -189,6 +192,10 @@ function pickStockWatchEntry(raw: unknown): StockWatchEntry | null {
 // request body) so both honor exactly the same allow-list.
 function pickTileSettings(obj: Record<string, unknown>): TileSettings {
   const result: TileSettings = {};
+  for (const key of ["launcherInstanceId", "launcherDeviceId", "launcherActionId"] as const) {
+    if (typeof obj[key] === "string" && obj[key].length <= 100) result[key] = obj[key];
+    else if (obj[key] === null) result[key] = null;
+  }
   if (Array.isArray(obj["categoryFilter"])) {
     result.categoryFilter = obj["categoryFilter"].filter(
       (x): x is string => typeof x === "string",
@@ -900,6 +907,12 @@ export function createImportedTile(
   variant: string | null = null,
 ): void {
   const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  // Imports are never authority to control a computer, even on the same server.
+  const importedSettings = obj["tileSettings"] && typeof obj["tileSettings"] === "object"
+    ? { ...(obj["tileSettings"] as Record<string, unknown>) } : {};
+  delete importedSettings.launcherInstanceId;
+  delete importedSettings.launcherDeviceId;
+  delete importedSettings.launcherActionId;
   insertTileStmt.run(
     userId,
     pageId,
@@ -923,7 +936,7 @@ export function createImportedTile(
     importString(obj["titleColor"]),
     obj["hideTitle"] === true ? 1 : 0,
     serializeMetrics(obj["metrics"]),
-    serializeTileSettings(obj["tileSettings"]),
+    serializeTileSettings(importedSettings),
   );
 }
 

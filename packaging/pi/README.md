@@ -11,6 +11,15 @@ Standalone and TrueNAS installations can coexist on the same network. Each
 server has its own database. Point all your displays at the same server if
 you want the same dashboard; there is no automatic data synchronization.
 
+## Desktop application launchers
+
+For approved application launch tiles on a paired Windows, Mac, or Linux desktop,
+see the [desktop companion guide](../desktop/README.md). It uses the same
+owner-pairing flow for standalone Pi hosting and TrueNAS hosting with a Pi kiosk.
+Configure trusted HTTPS (or the documented SSH tunnel) before pairing; plain
+unencrypted LAN HTTP is not supported for desktop control. This does not change
+the Pi installer or imply that real Pi boot/display testing has been completed.
+
 ## Supported baseline
 
 - Raspberry Pi 4 or 5, **64-bit Raspberry Pi OS Desktop Trixie**, labwc/Wayland.

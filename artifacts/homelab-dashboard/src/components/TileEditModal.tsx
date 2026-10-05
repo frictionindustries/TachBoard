@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import IntegrationPicker from "@/components/IntegrationPicker";
+import LauncherBindingEditor, { type LauncherBinding } from "@/components/LauncherBindingEditor";
 import { integrationMeta, INTEGRATION_SERVICE } from "@/lib/integrationMeta";
 import {
   METRIC_CATALOG,
@@ -264,6 +265,7 @@ const INTEGRATIONS = [
   { value: TileIntegration.visualizer, label: "Audio Visualizer" },
   { value: TileIntegration.pictureframe, label: "Picture Frame" },
   { value: TileIntegration.videoplayer, label: "Video Player" },
+  { value: TileIntegration.desktoplauncher, label: "Desktop Launcher" },
   { value: TileIntegration.note, label: "Note" },
   { value: TileIntegration.spacer, label: "Spacer" },
   { value: TileIntegration.divider, label: "Section Label" },
@@ -546,6 +548,14 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
     tile?.tileSettings?.openExpanded ?? false,
   );
 
+  // Desktop launcher binding trio (instance, device, action). The tile never
+  // uses its URL; launches go through the paired companion.
+  const [launcherBinding, setLauncherBinding] = useState<LauncherBinding>({
+    instanceId: tile?.tileSettings?.launcherInstanceId ?? null,
+    deviceId: tile?.tileSettings?.launcherDeviceId ?? null,
+    actionId: tile?.tileSettings?.launcherActionId ?? null,
+  });
+
   const [hideStatusDot, setHideStatusDot] = useState<boolean>(
     tile?.tileSettings?.hideStatusDot ?? false,
   );
@@ -710,6 +720,14 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
       setIntegration(tile?.integration ?? NONE);
       setName(tile?.name ?? "");
       setUrl(tile?.url ?? "");
+      // The modal stays mounted across editing sessions. A launcher binding is
+      // authority to control a particular desktop, so never carry draft state
+      // from another tile, a cancelled edit, or a pre-import tile.
+      setLauncherBinding({
+        instanceId: tile?.tileSettings?.launcherInstanceId ?? null,
+        deviceId: tile?.tileSettings?.launcherDeviceId ?? null,
+        actionId: tile?.tileSettings?.launcherActionId ?? null,
+      });
       setBgColor(tile?.bgColor ?? null);
       setImageUrl(tile?.imageUrl ?? "");
       setImageFit(placement.fit);
@@ -957,6 +975,7 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
   // name and size matter.
   const isDice = integration === TileIntegration.dice;
   const isCoinFlip = integration === TileIntegration.coinflip;
+  const isLauncher = integration === TileIntegration.desktoplauncher;
   // The Fortune tile is the same kind of self-contained client-side toy: it
   // shows a random quote/fortune from a baked-in list, refreshed on click or on
   // a timer. No link, image, background, metrics, or settings — only a name and
@@ -1015,7 +1034,7 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
   // Tiles that carry no link/image/background content: layout helpers plus the
   // note and timer, which paint their own surface.
   const isContentless =
-    isLayoutTile || isNote || isTimer || isEightball || isDice || isCoinFlip || isFortune || isTamagotchi || isBonsai || isAquarium || isVisualizer || isPictureFrame || isVideoPlayer;
+    isLayoutTile || isNote || isTimer || isEightball || isDice || isCoinFlip || isLauncher || isFortune || isTamagotchi || isBonsai || isAquarium || isVisualizer || isPictureFrame || isVideoPlayer;
 
   // Teams for the chosen leagues, for the dependent team multi-select. Sourced
   // from the baked-in catalog (ESPN's /teams endpoint isn't CORS-enabled), so
@@ -1789,6 +1808,12 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
                               noteBody: tile?.tileSettings?.noteBody ?? null,
                               noteItems: tile?.tileSettings?.noteItems ?? null,
                             }
+                          : isLauncher
+                          ? {
+                              launcherInstanceId: launcherBinding.instanceId,
+                              launcherDeviceId: launcherBinding.deviceId,
+                              launcherActionId: launcherBinding.actionId,
+                            }
                           : isDice
                             ? { diceType, diceCount }
                             : isTamagotchi
@@ -1910,7 +1935,7 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
         // Only emit a settings object when there is something to store; an
         // un-scrolled plain tile keeps tileSettings null as before.
         // Spacers/dividers are layout-only and never expand.
-        const expandOn = !isLayoutTile && openExpanded;
+        const expandOn = !isLayoutTile && !isLauncher && openExpanded;
         if (!widget && !scrollable && !dotHidden && !expandOn) return null;
         return {
           ...(widget ?? {}),
@@ -2102,6 +2127,14 @@ export default function TileEditModal({ open, onOpenChange, tile, mode, defaultG
                 </span>
               </div>
             </div>
+          )}
+
+          {isLauncher && (
+            <LauncherBindingEditor
+              open={open}
+              value={launcherBinding}
+              onChange={setLauncherBinding}
+            />
           )}
 
           {isCoinFlip && (

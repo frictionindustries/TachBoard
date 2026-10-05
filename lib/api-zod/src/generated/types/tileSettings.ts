@@ -229,6 +229,21 @@ export type TileSettings = {
      */
   truenasMetric?: TileSettingsTruenasMetric;
   /**
+     * Desktop launcher instance the tile is bound to (desktoplauncher tiles only).
+     * @nullable
+     */
+  launcherInstanceId?: string | null;
+  /**
+     * Paired desktop launcher device the tile is bound to.
+     * @nullable
+     */
+  launcherDeviceId?: string | null;
+  /**
+     * Launcher action (allow-listed app) on the bound device.
+     * @nullable
+     */
+  launcherActionId?: string | null;
+  /**
      * When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.
      * @nullable
      */

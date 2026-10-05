@@ -11,11 +11,13 @@ import widgetsRouter from "./widgets.js";
 import connectionsRouter from "./connections.js";
 import spotifyRouter from "./spotify.js";
 import googleRouter from "./google.js";
+import launcherRouter from "./launcher.js";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use("/auth", authRouter);
+router.use("/launcher", launcherRouter);
 router.use("/tiles/layout", layoutRouter);
 router.use("/tiles", tilesRouter);
 router.use("/pages", pagesRouter);

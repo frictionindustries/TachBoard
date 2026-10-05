@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
+import LauncherTile from "@/components/tiles/LauncherTile";
 import { TachLogo } from "@/components/TachLogo";
 import { useLocation } from "wouter";
 import GridLayout from "react-grid-layout";
@@ -371,6 +372,11 @@ function renderTileContent(tile: Tile, status: ServiceStatus | undefined, editMo
   }
   // The AI Chat tile owns its whole surface (conversation + input) and keeps
   // its history per tile, bypassing the standard integration header.
+  // The Desktop Launcher sends a launch command to a paired companion. It owns
+  // its surface and never opens tile.url.
+  if (tile.integration === "desktoplauncher") {
+    return <LauncherTile tile={tile} editMode={editMode} />;
+  }
   if (tile.integration === "aichat") {
     return <AiChatTile tile={tile} editMode={editMode} />;
   }

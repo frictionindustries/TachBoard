@@ -33,6 +33,8 @@ app.use(
 app.use(cors());
 // Auth is deliberately parsed/throttled first; imports keep their larger limit.
 app.use("/api/auth", createAuthIngress());
+// Desktop protocol messages only contain IDs and a small action catalog.
+app.use("/api/launcher", express.json({ limit: "16kb" }));
 // Allow a generous JSON body so page-import uploads (which can contain many
 // tiles and their settings) aren't rejected by the default 100kb limit.
 app.use(express.json({ limit: "5mb" }));

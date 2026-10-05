@@ -24,6 +24,98 @@ export interface VersionInfo {
   checkEnabled: boolean;
 }
 
+export interface LauncherAction {
+  id: string;
+  name: string;
+}
+
+export interface LauncherLocalApproval {
+  /** @maxLength 64 */
+  code: string;
+  instanceId: string;
+  approved: true;
+  /** @maxLength 100 */
+  name: string;
+  /** @maxItems 50 */
+  actions: LauncherAction[];
+}
+
+export interface LauncherCompanionMessage {
+  session?: string;
+  id?: string;
+  /** @maxItems 50 */
+  actions?: LauncherAction[];
+}
+
+export interface LauncherInvitation {
+  /** @maxLength 64 */
+  code: string;
+  instanceId: string;
+}
+
+export interface LauncherGrant {
+  id: string;
+  actionId: string;
+  /** Epoch milliseconds */
+  expiresAt: number;
+}
+
+export interface LauncherDevice {
+  id: string;
+  name: string;
+  online: boolean;
+  revoked: boolean;
+  actions: LauncherAction[];
+}
+
+export interface LauncherDeviceList {
+  instanceId: string;
+  devices: LauncherDevice[];
+}
+
+export interface LauncherPairingInput { [key: string]: unknown }
+
+export interface LauncherPairing {
+  code: string;
+  instanceId: string;
+  /** Epoch milliseconds */
+  expiresAt: number;
+  owner: string;
+}
+
+export interface LauncherDeviceRename {
+  name: string;
+}
+
+export interface LauncherOk {
+  ok: true;
+}
+
+export interface LauncherCommandInput {
+  instanceId: string;
+  deviceId: string;
+  actionId: string;
+  requestId: string;
+}
+
+export type LauncherCommandStatus = typeof LauncherCommandStatus[keyof typeof LauncherCommandStatus];
+
+
+export const LauncherCommandStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  failed: 'failed',
+  expired: 'expired',
+} as const;
+
+export interface LauncherCommand {
+  id: string;
+  status: LauncherCommandStatus;
+  /** Epoch milliseconds */
+  expiresAt: number;
+  error?: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }
@@ -102,6 +194,7 @@ export const TileIntegration = {
   pictureframe: 'pictureframe',
   videoplayer: 'videoplayer',
   aichat: 'aichat',
+  desktoplauncher: 'desktoplauncher',
 } as const;
 
 /**
@@ -554,6 +647,21 @@ export type TileSettings = {
      * @nullable
      */
   truenasMetric?: TileSettingsTruenasMetric;
+  /**
+     * Desktop launcher instance the tile is bound to (desktoplauncher tiles only).
+     * @nullable
+     */
+  launcherInstanceId?: string | null;
+  /**
+     * Paired desktop launcher device the tile is bound to.
+     * @nullable
+     */
+  launcherDeviceId?: string | null;
+  /**
+     * Launcher action (allow-listed app) on the bound device.
+     * @nullable
+     */
+  launcherActionId?: string | null;
   /**
      * When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.
      * @nullable
@@ -1019,6 +1127,7 @@ export const TileInputIntegration = {
   pictureframe: 'pictureframe',
   videoplayer: 'videoplayer',
   aichat: 'aichat',
+  desktoplauncher: 'desktoplauncher',
 } as const;
 
 export interface TileInput {
@@ -1108,6 +1217,7 @@ export const TileUpdateIntegration = {
   pictureframe: 'pictureframe',
   videoplayer: 'videoplayer',
   aichat: 'aichat',
+  desktoplauncher: 'desktoplauncher',
 } as const;
 
 export interface TileUpdate {
@@ -3291,5 +3401,33 @@ export const GetWeatherWidgetUnits = {
 
 export type AiModelsParams = {
 accountId: string;
+};
+
+export type GetLauncherInstance200 = {
+  instanceId: string;
+};
+
+export type InspectLauncherPairing200 = {
+  instanceId: string;
+  owner: string;
+  /** Epoch milliseconds */
+  expiresAt: number;
+};
+
+export type ApproveLauncherPairing200 = {
+  instanceId: string;
+  deviceId: string;
+  token: string;
+};
+
+export type LauncherCompanionOperation200 = {
+  instanceId?: string;
+  session?: string;
+  serverTime?: number;
+  commands?: LauncherGrant[];
+  id?: string;
+  actionId?: string;
+  expiresAt?: number;
+  ok?: boolean;
 };
 

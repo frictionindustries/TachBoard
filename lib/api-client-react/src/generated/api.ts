@@ -33,6 +33,7 @@ import type {
   AiModelList,
   AiModelsParams,
   AiTestResult,
+  ApproveLauncherPairing200,
   AudioBrowseResult,
   AudioFavoriteInput,
   AudioFavoriteResult,
@@ -65,6 +66,7 @@ import type {
   GetCalendarEventsParams,
   GetEmailInboxParams,
   GetEmailMessageBodyParams,
+  GetLauncherInstance200,
   GetMediaContinueParams,
   GetMediaRecentParams,
   GetNewsWidgetParams,
@@ -87,6 +89,18 @@ import type {
   HealthStatus,
   ImapAccount,
   ImapAccountInput,
+  InspectLauncherPairing200,
+  LauncherCommand,
+  LauncherCommandInput,
+  LauncherCompanionMessage,
+  LauncherCompanionOperation200,
+  LauncherDeviceList,
+  LauncherDeviceRename,
+  LauncherInvitation,
+  LauncherLocalApproval,
+  LauncherOk,
+  LauncherPairing,
+  LauncherPairingInput,
   LayoutUpdate,
   LidarrData,
   MediaItem,
@@ -9340,4 +9354,912 @@ export const useSendSpotifyCommand = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getSendSpotifyCommandMutationOptions(options), queryClient);
     }
+
+export const getGetLauncherInstanceUrl = () => {
+
+
+
+
+  return `/api/launcher/instance`
+}
+
+/**
+ * @summary Non-secret server identity over trusted transport
+ */
+export const getLauncherInstance = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetLauncherInstance200> => {
+
+  return customFetch<GetLauncherInstance200>(getGetLauncherInstanceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLauncherInstanceQueryKey = () => {
+    return [
+    `/api/launcher/instance`
+    ] as const;
+    }
+
+
+export const getGetLauncherInstanceQueryOptions = <TData = Awaited<ReturnType<typeof getLauncherInstance>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherInstance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLauncherInstanceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLauncherInstance>>> = ({ signal }) => getLauncherInstance({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLauncherInstance>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetLauncherInstanceQueryResult = NonNullable<Awaited<ReturnType<typeof getLauncherInstance>>>
+export type GetLauncherInstanceQueryError = ErrorType<unknown>
+
+
+export function useGetLauncherInstance<TData = Awaited<ReturnType<typeof getLauncherInstance>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherInstance>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLauncherInstance>>,
+          TError,
+          Awaited<ReturnType<typeof getLauncherInstance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLauncherInstance<TData = Awaited<ReturnType<typeof getLauncherInstance>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherInstance>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLauncherInstance>>,
+          TError,
+          Awaited<ReturnType<typeof getLauncherInstance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLauncherInstance<TData = Awaited<ReturnType<typeof getLauncherInstance>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherInstance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Non-secret server identity over trusted transport
+ */
+
+export function useGetLauncherInstance<TData = Awaited<ReturnType<typeof getLauncherInstance>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherInstance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetLauncherInstanceQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getInspectLauncherPairingUrl = () => {
+
+
+
+
+  return `/api/launcher/pairings/inspect`
+}
+
+/**
+ * @summary Inspect a short-lived invitation before explicit local approval
+ */
+export const inspectLauncherPairing = async (launcherInvitation: LauncherInvitation, options?: Parameters<typeof customFetch>[1]): Promise<InspectLauncherPairing200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<InspectLauncherPairing200>(getInspectLauncherPairingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(launcherInvitation)
+  }
+);}
+
+
+
+
+
+export const getInspectLauncherPairingMutationKey = () => ['inspectLauncherPairing'] as const;
+
+export const getInspectLauncherPairingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inspectLauncherPairing>>, TError,InspectLauncherPairingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof inspectLauncherPairing>>, TError,InspectLauncherPairingMutationVariables, TContext> => {
+
+const mutationKey = getInspectLauncherPairingMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof inspectLauncherPairing>>, InspectLauncherPairingMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  inspectLauncherPairing(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InspectLauncherPairingMutationResult = NonNullable<Awaited<ReturnType<typeof inspectLauncherPairing>>>
+    export type InspectLauncherPairingMutationBody = BodyType<LauncherInvitation>
+    export type InspectLauncherPairingMutationError = ErrorType<void>
+    export type InspectLauncherPairingMutationVariables = {data: BodyType<LauncherInvitation>}
+
+    /**
+ * @summary Inspect a short-lived invitation before explicit local approval
+ */
+export const useInspectLauncherPairing = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof inspectLauncherPairing>>, TError,InspectLauncherPairingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof inspectLauncherPairing>>,
+        TError,
+        InspectLauncherPairingMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInspectLauncherPairingMutationOptions(options), queryClient);
+    }
+
+export const getApproveLauncherPairingUrl = () => {
+
+
+
+
+  return `/api/launcher/pairings/approve`
+}
+
+/**
+ * @summary Consume invitation after local approval; never call from dashboard UI
+ */
+export const approveLauncherPairing = async (launcherLocalApproval: LauncherLocalApproval, options?: Parameters<typeof customFetch>[1]): Promise<ApproveLauncherPairing200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ApproveLauncherPairing200>(getApproveLauncherPairingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(launcherLocalApproval)
+  }
+);}
+
+
+
+
+
+export const getApproveLauncherPairingMutationKey = () => ['approveLauncherPairing'] as const;
+
+export const getApproveLauncherPairingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveLauncherPairing>>, TError,ApproveLauncherPairingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveLauncherPairing>>, TError,ApproveLauncherPairingMutationVariables, TContext> => {
+
+const mutationKey = getApproveLauncherPairingMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveLauncherPairing>>, ApproveLauncherPairingMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  approveLauncherPairing(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveLauncherPairingMutationResult = NonNullable<Awaited<ReturnType<typeof approveLauncherPairing>>>
+    export type ApproveLauncherPairingMutationBody = BodyType<LauncherLocalApproval>
+    export type ApproveLauncherPairingMutationError = ErrorType<void>
+    export type ApproveLauncherPairingMutationVariables = {data: BodyType<LauncherLocalApproval>}
+
+    /**
+ * @summary Consume invitation after local approval; never call from dashboard UI
+ */
+export const useApproveLauncherPairing = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveLauncherPairing>>, TError,ApproveLauncherPairingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof approveLauncherPairing>>,
+        TError,
+        ApproveLauncherPairingMutationVariables,
+        TContext
+      > => {
+      return useMutation(getApproveLauncherPairingMutationOptions(options), queryClient);
+    }
+
+export const getLauncherCompanionOperationUrl = (operation: 'hello' | 'poll' | 'accept' | 'failed',) => {
+
+
+
+
+  return `/api/launcher/companion/${operation}`
+}
+
+/**
+ * Authorization is a device token, NOT a dashboard JWT. Hello requires the local action catalog and discards old pending work. Poll requires session and catalog. Accept and failed require session and request id. An accept response is a one-use grant; response loss must never cause a launch retry. All requests require trusted transport. See packaging/desktop/README.md.
+ * @summary Outbound desktop session, polling, one-shot authorization or failure report
+ */
+export const launcherCompanionOperation = async (operation: 'hello' | 'poll' | 'accept' | 'failed',
+    launcherCompanionMessage: LauncherCompanionMessage, options?: Parameters<typeof customFetch>[1]): Promise<LauncherCompanionOperation200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LauncherCompanionOperation200>(getLauncherCompanionOperationUrl(operation),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(launcherCompanionMessage)
+  }
+);}
+
+
+
+
+
+export const getLauncherCompanionOperationMutationKey = () => ['launcherCompanionOperation'] as const;
+
+export const getLauncherCompanionOperationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof launcherCompanionOperation>>, TError,LauncherCompanionOperationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof launcherCompanionOperation>>, TError,LauncherCompanionOperationMutationVariables, TContext> => {
+
+const mutationKey = getLauncherCompanionOperationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof launcherCompanionOperation>>, LauncherCompanionOperationMutationVariables> = (props) => {
+          const {operation,data} = props ?? {};
+
+          return  launcherCompanionOperation(operation,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LauncherCompanionOperationMutationResult = NonNullable<Awaited<ReturnType<typeof launcherCompanionOperation>>>
+    export type LauncherCompanionOperationMutationBody = BodyType<LauncherCompanionMessage>
+    export type LauncherCompanionOperationMutationError = ErrorType<void>
+    export type LauncherCompanionOperationMutationVariables = {operation: 'hello' | 'poll' | 'accept' | 'failed';data: BodyType<LauncherCompanionMessage>}
+
+    /**
+ * @summary Outbound desktop session, polling, one-shot authorization or failure report
+ */
+export const useLauncherCompanionOperation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof launcherCompanionOperation>>, TError,LauncherCompanionOperationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof launcherCompanionOperation>>,
+        TError,
+        LauncherCompanionOperationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLauncherCompanionOperationMutationOptions(options), queryClient);
+    }
+
+export const getGetLauncherDevicesUrl = () => {
+
+
+
+
+  return `/api/launcher/devices`
+}
+
+/**
+ * @summary List paired desktop launcher devices and their allowed actions (owner only)
+ */
+export const getLauncherDevices = async ( options?: Parameters<typeof customFetch>[1]): Promise<LauncherDeviceList> => {
+
+  return customFetch<LauncherDeviceList>(getGetLauncherDevicesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLauncherDevicesQueryKey = () => {
+    return [
+    `/api/launcher/devices`
+    ] as const;
+    }
+
+
+export const getGetLauncherDevicesQueryOptions = <TData = Awaited<ReturnType<typeof getLauncherDevices>>, TError = ErrorType<ErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherDevices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLauncherDevicesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLauncherDevices>>> = ({ signal }) => getLauncherDevices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLauncherDevices>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetLauncherDevicesQueryResult = NonNullable<Awaited<ReturnType<typeof getLauncherDevices>>>
+export type GetLauncherDevicesQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetLauncherDevices<TData = Awaited<ReturnType<typeof getLauncherDevices>>, TError = ErrorType<ErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherDevices>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLauncherDevices>>,
+          TError,
+          Awaited<ReturnType<typeof getLauncherDevices>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLauncherDevices<TData = Awaited<ReturnType<typeof getLauncherDevices>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherDevices>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLauncherDevices>>,
+          TError,
+          Awaited<ReturnType<typeof getLauncherDevices>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLauncherDevices<TData = Awaited<ReturnType<typeof getLauncherDevices>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherDevices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List paired desktop launcher devices and their allowed actions (owner only)
+ */
+
+export function useGetLauncherDevices<TData = Awaited<ReturnType<typeof getLauncherDevices>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherDevices>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetLauncherDevicesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateLauncherPairingUrl = () => {
+
+
+
+
+  return `/api/launcher/pairings`
+}
+
+/**
+ * @summary Start a new desktop companion pairing and get a one-time code
+ */
+export const createLauncherPairing = async (launcherPairingInput: LauncherPairingInput, options?: Parameters<typeof customFetch>[1]): Promise<LauncherPairing> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LauncherPairing>(getCreateLauncherPairingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(launcherPairingInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLauncherPairingMutationKey = () => ['createLauncherPairing'] as const;
+
+export const getCreateLauncherPairingMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLauncherPairing>>, TError,CreateLauncherPairingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLauncherPairing>>, TError,CreateLauncherPairingMutationVariables, TContext> => {
+
+const mutationKey = getCreateLauncherPairingMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLauncherPairing>>, CreateLauncherPairingMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLauncherPairing(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLauncherPairingMutationResult = NonNullable<Awaited<ReturnType<typeof createLauncherPairing>>>
+    export type CreateLauncherPairingMutationBody = BodyType<LauncherPairingInput>
+    export type CreateLauncherPairingMutationError = ErrorType<ErrorResponse>
+    export type CreateLauncherPairingMutationVariables = {data: BodyType<LauncherPairingInput>}
+
+    /**
+ * @summary Start a new desktop companion pairing and get a one-time code
+ */
+export const useCreateLauncherPairing = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLauncherPairing>>, TError,CreateLauncherPairingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createLauncherPairing>>,
+        TError,
+        CreateLauncherPairingMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLauncherPairingMutationOptions(options), queryClient);
+    }
+
+export const getRenameLauncherDeviceUrl = (id: string,) => {
+
+
+
+
+  return `/api/launcher/devices/${id}`
+}
+
+/**
+ * @summary Rename a paired desktop launcher device
+ */
+export const renameLauncherDevice = async (id: string,
+    launcherDeviceRename: LauncherDeviceRename, options?: Parameters<typeof customFetch>[1]): Promise<LauncherOk> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LauncherOk>(getRenameLauncherDeviceUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(launcherDeviceRename)
+  }
+);}
+
+
+
+
+
+export const getRenameLauncherDeviceMutationKey = () => ['renameLauncherDevice'] as const;
+
+export const getRenameLauncherDeviceMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameLauncherDevice>>, TError,RenameLauncherDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renameLauncherDevice>>, TError,RenameLauncherDeviceMutationVariables, TContext> => {
+
+const mutationKey = getRenameLauncherDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renameLauncherDevice>>, RenameLauncherDeviceMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renameLauncherDevice(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenameLauncherDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof renameLauncherDevice>>>
+    export type RenameLauncherDeviceMutationBody = BodyType<LauncherDeviceRename>
+    export type RenameLauncherDeviceMutationError = ErrorType<ErrorResponse>
+    export type RenameLauncherDeviceMutationVariables = {id: string;data: BodyType<LauncherDeviceRename>}
+
+    /**
+ * @summary Rename a paired desktop launcher device
+ */
+export const useRenameLauncherDevice = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameLauncherDevice>>, TError,RenameLauncherDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof renameLauncherDevice>>,
+        TError,
+        RenameLauncherDeviceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRenameLauncherDeviceMutationOptions(options), queryClient);
+    }
+
+export const getRevokeLauncherDeviceUrl = (id: string,) => {
+
+
+
+
+  return `/api/launcher/devices/${id}`
+}
+
+/**
+ * @summary Revoke a paired desktop launcher device (row is retained as revoked)
+ */
+export const revokeLauncherDevice = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<LauncherOk> => {
+
+  return customFetch<LauncherOk>(getRevokeLauncherDeviceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeLauncherDeviceMutationKey = () => ['revokeLauncherDevice'] as const;
+
+export const getRevokeLauncherDeviceMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeLauncherDevice>>, TError,RevokeLauncherDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeLauncherDevice>>, TError,RevokeLauncherDeviceMutationVariables, TContext> => {
+
+const mutationKey = getRevokeLauncherDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeLauncherDevice>>, RevokeLauncherDeviceMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  revokeLauncherDevice(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeLauncherDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof revokeLauncherDevice>>>
+
+    export type RevokeLauncherDeviceMutationError = ErrorType<ErrorResponse>
+    export type RevokeLauncherDeviceMutationVariables = {id: string}
+
+    /**
+ * @summary Revoke a paired desktop launcher device (row is retained as revoked)
+ */
+export const useRevokeLauncherDevice = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeLauncherDevice>>, TError,RevokeLauncherDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof revokeLauncherDevice>>,
+        TError,
+        RevokeLauncherDeviceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeLauncherDeviceMutationOptions(options), queryClient);
+    }
+
+export const getCreateLauncherCommandUrl = () => {
+
+
+
+
+  return `/api/launcher/commands`
+}
+
+/**
+ * @summary Queue a launch command for a paired device (idempotent on requestId)
+ */
+export const createLauncherCommand = async (launcherCommandInput: LauncherCommandInput, options?: Parameters<typeof customFetch>[1]): Promise<LauncherCommand> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LauncherCommand>(getCreateLauncherCommandUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(launcherCommandInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLauncherCommandMutationKey = () => ['createLauncherCommand'] as const;
+
+export const getCreateLauncherCommandMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLauncherCommand>>, TError,CreateLauncherCommandMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLauncherCommand>>, TError,CreateLauncherCommandMutationVariables, TContext> => {
+
+const mutationKey = getCreateLauncherCommandMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLauncherCommand>>, CreateLauncherCommandMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLauncherCommand(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLauncherCommandMutationResult = NonNullable<Awaited<ReturnType<typeof createLauncherCommand>>>
+    export type CreateLauncherCommandMutationBody = BodyType<LauncherCommandInput>
+    export type CreateLauncherCommandMutationError = ErrorType<ErrorResponse>
+    export type CreateLauncherCommandMutationVariables = {data: BodyType<LauncherCommandInput>}
+
+    /**
+ * @summary Queue a launch command for a paired device (idempotent on requestId)
+ */
+export const useCreateLauncherCommand = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLauncherCommand>>, TError,CreateLauncherCommandMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createLauncherCommand>>,
+        TError,
+        CreateLauncherCommandMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLauncherCommandMutationOptions(options), queryClient);
+    }
+
+export const getGetLauncherCommandUrl = (id: string,) => {
+
+
+
+
+  return `/api/launcher/commands/${id}`
+}
+
+/**
+ * @summary Get the status of a launch command
+ */
+export const getLauncherCommand = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<LauncherCommand> => {
+
+  return customFetch<LauncherCommand>(getGetLauncherCommandUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLauncherCommandQueryKey = (id: string,) => {
+    return [
+    `/api/launcher/commands/${id}`
+    ] as const;
+    }
+
+
+export const getGetLauncherCommandQueryOptions = <TData = Awaited<ReturnType<typeof getLauncherCommand>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherCommand>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLauncherCommandQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLauncherCommand>>> = ({ signal }) => getLauncherCommand(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLauncherCommand>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetLauncherCommandQueryResult = NonNullable<Awaited<ReturnType<typeof getLauncherCommand>>>
+export type GetLauncherCommandQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetLauncherCommand<TData = Awaited<ReturnType<typeof getLauncherCommand>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherCommand>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLauncherCommand>>,
+          TError,
+          Awaited<ReturnType<typeof getLauncherCommand>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLauncherCommand<TData = Awaited<ReturnType<typeof getLauncherCommand>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherCommand>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLauncherCommand>>,
+          TError,
+          Awaited<ReturnType<typeof getLauncherCommand>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLauncherCommand<TData = Awaited<ReturnType<typeof getLauncherCommand>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherCommand>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get the status of a launch command
+ */
+
+export function useGetLauncherCommand<TData = Awaited<ReturnType<typeof getLauncherCommand>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLauncherCommand>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetLauncherCommandQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

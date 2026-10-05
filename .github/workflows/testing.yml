@@ -14,6 +14,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  desktop-companion:
+    name: Desktop companion adapters (${{ matrix.os }})
+    if: github.ref == 'refs/heads/testing'
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Test companion protocol client and native process adapter
+        run: python -m unittest discover -s packaging/desktop -p "test_*.py" -v
+      - name: Upload source companion (no credentials or native installer)
+        if: matrix.os == 'ubuntu-24.04'
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-companion-source-testing
+          path: |
+            packaging/desktop/companion.py
+            packaging/desktop/requirements.txt
+            packaging/desktop/README.md
+          if-no-files-found: error
+
   tests:
     name: Unit tests (api-server)
     # Manual dispatch must explicitly select the testing branch.

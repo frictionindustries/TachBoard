@@ -68,6 +68,7 @@ const CATEGORY_BY_KEY: Record<string, Category> = {
   eightball: "Fun",
   dice: "Fun",
   coinflip: "Fun",
+  desktoplauncher: "Server",
   fortune: "Fun",
   tamagotchi: "Fun",
   bonsai: "Fun",

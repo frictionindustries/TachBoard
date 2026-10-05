@@ -20,6 +20,7 @@ import {
   Radio,
   Music,
   Clock,
+  MonitorUp,
   Timer,
   Mail,
   CalendarDays,
@@ -159,6 +160,10 @@ export const INTEGRATION_META: Record<string, IntegrationMeta> = {
   [TileIntegration.dice]: {
     icon: Dices,
     description: "Roll a handful of virtual dice.",
+  },
+  [TileIntegration.desktoplauncher]: {
+    icon: MonitorUp,
+    description: "Open an approved app on a paired computer.",
   },
   [TileIntegration.coinflip]: {
     icon: Coins,

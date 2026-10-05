@@ -100,7 +100,7 @@ export const GetTilesResponseItem = zod.object({
   "deviceModeId": zod.number().int().nullish().describe('The device mode (layout profile) this tile belongs to. Null only for rows that predate device modes and could not be assigned one.'),
   "variant": zod.string().nullish().describe('Adaptive layout variant key this tile belongs to (e.g. "fhd-landscape"). Null means the base layout used by auto/fixed pages.'),
   "type": zod.enum(['app', 'truenas', 'media', 'sonarr', 'radarr', 'lidarr', 'qbittorrent']),
-  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal(null)]).nullish(),
+  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal('desktoplauncher'),zod.literal(null)]).nullish(),
   "gridX": zod.number().int(),
   "gridY": zod.number().int(),
   "gridW": zod.number().int(),
@@ -162,6 +162,9 @@ export const GetTilesResponseItem = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -246,7 +249,7 @@ export const CreateTileBody = zod.object({
   "deviceModeId": zod.number().int().nullish().describe('The device mode (layout profile) to create this tile in. Omit to fall back to the user\'s default (first) mode.'),
   "variant": zod.string().nullish().describe('Adaptive layout variant key to create this tile in (e.g. "fhd-landscape"). Omit or null for the base layout.'),
   "type": zod.enum(['app', 'truenas', 'media', 'sonarr', 'radarr', 'lidarr', 'qbittorrent']),
-  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal(null)]).nullish(),
+  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal('desktoplauncher'),zod.literal(null)]).nullish(),
   "gridX": zod.number().int(),
   "gridY": zod.number().int(),
   "gridW": zod.number().int(),
@@ -308,6 +311,9 @@ export const CreateTileBody = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -388,7 +394,7 @@ export const CreateTileResponse = zod.object({
   "deviceModeId": zod.number().int().nullish().describe('The device mode (layout profile) this tile belongs to. Null only for rows that predate device modes and could not be assigned one.'),
   "variant": zod.string().nullish().describe('Adaptive layout variant key this tile belongs to (e.g. "fhd-landscape"). Null means the base layout used by auto/fixed pages.'),
   "type": zod.enum(['app', 'truenas', 'media', 'sonarr', 'radarr', 'lidarr', 'qbittorrent']),
-  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal(null)]).nullish(),
+  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal('desktoplauncher'),zod.literal(null)]).nullish(),
   "gridX": zod.number().int(),
   "gridY": zod.number().int(),
   "gridW": zod.number().int(),
@@ -450,6 +456,9 @@ export const CreateTileResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -539,7 +548,7 @@ export const GetTileResponse = zod.object({
   "deviceModeId": zod.number().int().nullish().describe('The device mode (layout profile) this tile belongs to. Null only for rows that predate device modes and could not be assigned one.'),
   "variant": zod.string().nullish().describe('Adaptive layout variant key this tile belongs to (e.g. "fhd-landscape"). Null means the base layout used by auto/fixed pages.'),
   "type": zod.enum(['app', 'truenas', 'media', 'sonarr', 'radarr', 'lidarr', 'qbittorrent']),
-  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal(null)]).nullish(),
+  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal('desktoplauncher'),zod.literal(null)]).nullish(),
   "gridX": zod.number().int(),
   "gridY": zod.number().int(),
   "gridW": zod.number().int(),
@@ -601,6 +610,9 @@ export const GetTileResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -684,7 +696,7 @@ export const UpdateTileParams = zod.object({
 })
 
 export const UpdateTileBody = zod.object({
-  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal(null)]).nullish(),
+  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal('desktoplauncher'),zod.literal(null)]).nullish(),
   "gridX": zod.number().int().optional(),
   "gridY": zod.number().int().optional(),
   "gridW": zod.number().int().optional(),
@@ -746,6 +758,9 @@ export const UpdateTileBody = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -826,7 +841,7 @@ export const UpdateTileResponse = zod.object({
   "deviceModeId": zod.number().int().nullish().describe('The device mode (layout profile) this tile belongs to. Null only for rows that predate device modes and could not be assigned one.'),
   "variant": zod.string().nullish().describe('Adaptive layout variant key this tile belongs to (e.g. "fhd-landscape"). Null means the base layout used by auto/fixed pages.'),
   "type": zod.enum(['app', 'truenas', 'media', 'sonarr', 'radarr', 'lidarr', 'qbittorrent']),
-  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal(null)]).nullish(),
+  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal('desktoplauncher'),zod.literal(null)]).nullish(),
   "gridX": zod.number().int(),
   "gridY": zod.number().int(),
   "gridW": zod.number().int(),
@@ -888,6 +903,9 @@ export const UpdateTileResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -996,7 +1014,7 @@ export const SaveLayoutResponseItem = zod.object({
   "deviceModeId": zod.number().int().nullish().describe('The device mode (layout profile) this tile belongs to. Null only for rows that predate device modes and could not be assigned one.'),
   "variant": zod.string().nullish().describe('Adaptive layout variant key this tile belongs to (e.g. "fhd-landscape"). Null means the base layout used by auto/fixed pages.'),
   "type": zod.enum(['app', 'truenas', 'media', 'sonarr', 'radarr', 'lidarr', 'qbittorrent']),
-  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal(null)]).nullish(),
+  "integration": zod.union([zod.literal('truenas'),zod.literal('media'),zod.literal('jellyfin'),zod.literal('sonarr'),zod.literal('radarr'),zod.literal('lidarr'),zod.literal('qbittorrent'),zod.literal('pihole'),zod.literal('nginx-proxy-manager'),zod.literal('prowlarr'),zod.literal('pterodactyl'),zod.literal('tailscale'),zod.literal('ersatztv'),zod.literal('audioplayer'),zod.literal('clock'),zod.literal('timer'),zod.literal('weather'),zod.literal('sports'),zod.literal('news'),zod.literal('stocks'),zod.literal('sleeper'),zod.literal('email'),zod.literal('calendar'),zod.literal('note'),zod.literal('spacer'),zod.literal('divider'),zod.literal('eightball'),zod.literal('dice'),zod.literal('coinflip'),zod.literal('fortune'),zod.literal('tamagotchi'),zod.literal('bonsai'),zod.literal('aquarium'),zod.literal('visualizer'),zod.literal('pictureframe'),zod.literal('videoplayer'),zod.literal('aichat'),zod.literal('desktoplauncher'),zod.literal(null)]).nullish(),
   "gridX": zod.number().int(),
   "gridY": zod.number().int(),
   "gridW": zod.number().int(),
@@ -1058,6 +1076,9 @@ export const SaveLayoutResponseItem = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -1358,6 +1379,9 @@ export const ExportAllPagesResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -1497,6 +1521,9 @@ export const ExportAllPagesResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -1653,6 +1680,9 @@ export const ExportPageResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -1792,6 +1822,9 @@ export const ExportPageResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -1944,6 +1977,9 @@ export const ImportPagesBody = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -2083,6 +2119,9 @@ export const ImportPagesBody = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -2253,6 +2292,9 @@ export const ExportProfileResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -2392,6 +2434,9 @@ export const ExportProfileResponse = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -2559,6 +2604,9 @@ export const ImportProfileBody = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -2698,6 +2746,9 @@ export const ImportProfileBody = zod.object({
   "scrollable": zod.boolean().nullish().describe('When true, the tile body shows a scrollbar when its content overflows instead of clipping it at the tile edge. Absent or false clips overflowing content (the default).'),
   "hideStatusDot": zod.boolean().nullish().describe('When true, the tile header hides the service-reachability status dot even when the backing connection is configured. Absent or false shows the dot (the default).'),
   "truenasMetric": zod.union([zod.literal('cpuram'),zod.literal('network'),zod.literal('arc'),zod.literal('pools'),zod.literal('disks'),zod.literal('cputemp'),zod.literal(null)]).nullish().describe('Which single TrueNAS metric a dedicated TrueNAS tile renders with its bespoke visual: "cpuram", "network", "arc", "pools", "disks", or "cputemp". Null or absent means the tile shows the combined multi-section view (the default, backward-compatible behavior).'),
+  "launcherInstanceId": zod.string().nullish().describe('Desktop launcher instance the tile is bound to (desktoplauncher tiles only).'),
+  "launcherDeviceId": zod.string().nullish().describe('Paired desktop launcher device the tile is bound to.'),
+  "launcherActionId": zod.string().nullish().describe('Launcher action (allow-listed app) on the bound device.'),
   "truenasShowCpuCores": zod.boolean().nullish().describe('When true (or absent, the default), the dedicated CPU-temperature TrueNAS tile shows the per-core temperature readout beneath the gauge. Set false for a simpler tile with just the headline gauge.'),
   "truenasPools": zod.array(zod.string()).nullish().describe('Allow-list of TrueNAS ZFS pool (volume) names to show on the tile. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty means show all pools (the default, backward-compatible behavior).'),
   "truenasPoolOrder": zod.array(zod.string()).nullish().describe('Explicit display order of TrueNAS ZFS pool (volume) names. Pools whose name appears here are shown first, in this order; any remaining pools follow in their server-reported order. Applies to both the dedicated ZFS Pools view and the pools section of the combined view. Null, absent, or empty keeps the server-reported order (the default, backward-compatible behavior).'),
@@ -4139,6 +4190,197 @@ export const SendSpotifyCommandBody = zod.object({
 
 export const SendSpotifyCommandResponse = zod.object({
   "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Non-secret server identity over trusted transport
+ */
+export const GetLauncherInstanceResponse = zod.object({
+  "instanceId": zod.string()
+})
+
+
+/**
+ * @summary Inspect a short-lived invitation before explicit local approval
+ */
+export const inspectLauncherPairingBodyCodeMax = 64;
+
+
+
+export const InspectLauncherPairingBody = zod.object({
+  "code": zod.string().max(inspectLauncherPairingBodyCodeMax),
+  "instanceId": zod.string()
+})
+
+export const InspectLauncherPairingResponse = zod.object({
+  "instanceId": zod.string(),
+  "owner": zod.string(),
+  "expiresAt": zod.number().describe('Epoch milliseconds')
+})
+
+
+/**
+ * @summary Consume invitation after local approval; never call from dashboard UI
+ */
+export const approveLauncherPairingBodyCodeMax = 64;
+
+export const approveLauncherPairingBodyNameMax = 100;
+
+export const approveLauncherPairingBodyActionsMax = 50;
+
+
+
+export const ApproveLauncherPairingBody = zod.object({
+  "code": zod.string().max(approveLauncherPairingBodyCodeMax),
+  "instanceId": zod.string(),
+  "approved": zod.literal(true),
+  "name": zod.string().max(approveLauncherPairingBodyNameMax),
+  "actions": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+})).max(approveLauncherPairingBodyActionsMax)
+})
+
+export const ApproveLauncherPairingResponse = zod.object({
+  "instanceId": zod.string(),
+  "deviceId": zod.string(),
+  "token": zod.string()
+})
+
+
+/**
+ * Authorization is a device token, NOT a dashboard JWT. Hello requires the local action catalog and discards old pending work. Poll requires session and catalog. Accept and failed require session and request id. An accept response is a one-use grant; response loss must never cause a launch retry. All requests require trusted transport. See packaging/desktop/README.md.
+ * @summary Outbound desktop session, polling, one-shot authorization or failure report
+ */
+export const LauncherCompanionOperationParams = zod.object({
+  "operation": zod.enum(['hello', 'poll', 'accept', 'failed'])
+})
+
+export const LauncherCompanionOperationHeader = zod.object({
+  "X-Launcher-Instance": zod.string()
+})
+
+export const launcherCompanionOperationBodyActionsMax = 50;
+
+
+
+export const LauncherCompanionOperationBody = zod.object({
+  "session": zod.string().optional(),
+  "id": zod.string().optional(),
+  "actions": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+})).max(launcherCompanionOperationBodyActionsMax).optional()
+})
+
+export const LauncherCompanionOperationResponse = zod.object({
+  "instanceId": zod.string().optional(),
+  "session": zod.string().optional(),
+  "serverTime": zod.number().optional(),
+  "commands": zod.array(zod.object({
+  "id": zod.string(),
+  "actionId": zod.string(),
+  "expiresAt": zod.number().describe('Epoch milliseconds')
+})).optional(),
+  "id": zod.string().optional(),
+  "actionId": zod.string().optional(),
+  "expiresAt": zod.number().optional(),
+  "ok": zod.boolean().optional()
+})
+
+
+/**
+ * @summary List paired desktop launcher devices and their allowed actions (owner only)
+ */
+export const GetLauncherDevicesResponse = zod.object({
+  "instanceId": zod.string(),
+  "devices": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "online": zod.boolean(),
+  "revoked": zod.boolean(),
+  "actions": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Start a new desktop companion pairing and get a one-time code
+ */
+export const CreateLauncherPairingBody = zod.object({
+
+}).passthrough()
+
+export const CreateLauncherPairingResponse = zod.object({
+  "code": zod.string(),
+  "instanceId": zod.string(),
+  "expiresAt": zod.number().describe('Epoch milliseconds'),
+  "owner": zod.string()
+})
+
+
+/**
+ * @summary Rename a paired desktop launcher device
+ */
+export const RenameLauncherDeviceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RenameLauncherDeviceBody = zod.object({
+  "name": zod.string()
+})
+
+export const RenameLauncherDeviceResponse = zod.object({
+  "ok": zod.literal(true)
+})
+
+
+/**
+ * @summary Revoke a paired desktop launcher device (row is retained as revoked)
+ */
+export const RevokeLauncherDeviceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RevokeLauncherDeviceResponse = zod.object({
+  "ok": zod.literal(true)
+})
+
+
+/**
+ * @summary Queue a launch command for a paired device (idempotent on requestId)
+ */
+export const CreateLauncherCommandBody = zod.object({
+  "instanceId": zod.string(),
+  "deviceId": zod.string(),
+  "actionId": zod.string(),
+  "requestId": zod.string().uuid()
+})
+
+export const CreateLauncherCommandResponse = zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'failed', 'expired']),
+  "expiresAt": zod.number().describe('Epoch milliseconds'),
+  "error": zod.string().optional()
+})
+
+
+/**
+ * @summary Get the status of a launch command
+ */
+export const GetLauncherCommandParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetLauncherCommandResponse = zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'failed', 'expired']),
+  "expiresAt": zod.number().describe('Epoch milliseconds'),
+  "error": zod.string().optional()
 })
 
 

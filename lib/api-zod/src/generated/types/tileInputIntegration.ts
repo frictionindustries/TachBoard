@@ -50,4 +50,5 @@ export const TileInputIntegration = {
   pictureframe: 'pictureframe',
   videoplayer: 'videoplayer',
   aichat: 'aichat',
+  desktoplauncher: 'desktoplauncher',
 } as const;

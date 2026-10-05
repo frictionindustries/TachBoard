@@ -72,3 +72,5 @@
 - [GitHub workflow push authorization](git-push-auth.md) — confirmed CLI credential workaround when Replit OAuth lacks workflow scope; saved commands in GIT-COMMANDS.md.
 - [Expanded panel lifecycle](expanded-panel-lifecycle.md) — preserve connected media DOM, not just React state; nested portals must stay above the promoted tile.
 - [Self-contained Pi edition](pi-edition-scope.md) — Pi must host and display Tachboard without TrueNAS; separate download, network first, USB eventually.
+- [Desktop launcher safety](desktop-launcher-safety.md) — prefer ambiguous non-delivery over replay; keep instance binding and local allowlists across future transports.
+- [OpenAPI body export collisions](openapi-inline-body-collisions.md) — use named request-body schemas to avoid duplicate exports between Orval Zod and model barrels.
