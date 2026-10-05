@@ -67,3 +67,7 @@ artifacts/api-server/data/uploads/
 
 # Release bundles built by scripts/package-release.mjs
 /release/
+
+# Python companion/installer caches
+__pycache__/
+*.pyc
