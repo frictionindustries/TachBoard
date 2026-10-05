@@ -29,6 +29,16 @@ strong random secret is generated on first run and saved to
 
 ---
 
+## Raspberry Pi — standalone or remote kiosk
+
+The separate **Pi edition** can host Tachboard on the Pi and show it full-screen,
+or display an existing TrueNAS-hosted dashboard without running a local server.
+Both deployment options can coexist. No Docker is needed on the Pi.
+
+It targets Raspberry Pi 4/5 with 64-bit Raspberry Pi OS Desktop Trixie.
+See [Pi setup, downloads, and recovery](packaging/pi/README.md).
+The initial edition is an installer bundle, not a flashable OS image.
+
 ## Linux / TrueNAS SCALE — Docker (recommended)
 
 The image is multi-arch (`amd64` + `arm64`), so it runs on typical TrueNAS

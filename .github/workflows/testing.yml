@@ -30,6 +30,49 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run api-server test suite
         run: pnpm --filter @workspace/api-server test
+      - name: Test Pi installer
+        run: |
+          python3 -m unittest discover -s packaging/pi -p 'test_*.py' -v
+          node --test scripts/package-pi.test.mjs
+
+  pi:
+    name: Pi edition (ARM64)
+    needs: [tests]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build server
+        env:
+          APP_VERSION: testing-${{ github.sha }}
+          APP_REPO: ${{ github.repository }}
+        run: pnpm --filter @workspace/api-server run build
+      - name: Build dashboard
+        env:
+          NODE_ENV: production
+          BASE_PATH: /
+          PORT: "20028"
+        run: pnpm --filter @workspace/homelab-dashboard run build
+      - name: Package ARM64 server
+        run: node scripts/package-release.mjs --out release --no-archive
+      - name: Smoke test ARM64 server
+        run: node scripts/smoke-test-bundle.mjs release/tachboard-linux-arm64
+      - name: Package Pi edition
+        run: node scripts/package-pi.mjs release
+      - name: Upload Pi testing download
+        uses: actions/upload-artifact@v7
+        with:
+          name: pi-edition-testing
+          path: |
+            release/tachboard-pi-arm64.tar.gz
+            release/tachboard-pi-arm64.tar.gz.sha256
+          if-no-files-found: error
 
   docker:
     name: Publish testing image (linux amd64+arm64)

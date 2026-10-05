@@ -14,8 +14,9 @@ self-hosters who don't want to install Node or Docker.
 ## Testing on TrueNAS with live data
 
 The separate `.github/workflows/testing.yml` workflow runs on pushes to the
-`testing` branch. It runs the API tests, then builds and publishes only the
-multi-arch Docker image (amd64 + arm64). It does not build desktop bundles,
+`testing` branch. It runs the API and Pi installer tests, then builds and publishes the
+multi-arch Docker image (amd64 + arm64) and a separate ARM64 Pi installer
+download named `pi-edition-testing` in the run's artifacts. It does not build Windows/macOS bundles,
 create a GitHub Release, or update stable version tags or `latest`.
 
 Published image references:
@@ -74,6 +75,17 @@ testing-image publication. **Testing Docker image** also supports manual
 dispatch with the `testing` branch selected; runs on other branches skip
 publication. GitHub only shows its manual Run workflow button after the
 workflow file is present on the default branch.
+
+## Pi edition downloads
+
+The Linux ARM64 release job additionally packages `tachboard-pi-arm64.tar.gz`
+and its SHA-256 file after the server bundle smoke test. These are attached
+to tagged GitHub releases and uploaded as the `pi-edition` workflow artifact.
+The Pi package reuses the same server code; it is not a separate fork.
+
+The testing workflow creates `pi-edition-testing` without a GitHub Release.
+See [the Pi guide](packaging/pi/README.md) for standalone and remote-kiosk
+installation. Neither pipeline configures hardware or updates running Pis.
 
 ## Cutting a release
 
