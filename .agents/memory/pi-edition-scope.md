@@ -7,7 +7,13 @@ The Pi edition must support standalone hosting on the Pi as well as full-screen 
 
 **Why:** the user clarified that independent hosting was the reason they considered a separate fork, then explicitly retained the TrueNAS + Pi kiosk option. Neither deployment option should replace the other.
 
-**How to apply:** include local server hosting and an external-server kiosk configuration in the initial Pi scope, sharing Tachboard code with separate Pi packaging as the user agreed. The user chose network connectivity first with USB support eventually. The earlier draft excluded a self-contained Pi installer and needs revision before execution.
+**How to apply:** include local server hosting and an external-server kiosk configuration in the initial Pi scope, sharing Tachboard code with separate Pi packaging as the user agreed. The user chose network connectivity first with USB support eventually.
+
+The user will use a Raspberry Pi 5 for this setup.
+
+**Why:** the user explicitly identified their target hardware.
+
+**How to apply:** tailor installation and hardware guidance to Pi 5 without assuming a particular RAM size, screen, or storage device.
 
 Use Raspberry Pi OS Desktop Trixie (64-bit) as the initial native-bundle baseline; do not casually broaden support to Bookworm.
 
